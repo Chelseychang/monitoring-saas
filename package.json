@@ -12,18 +12,20 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "express": "latest",
+    "cheerio": "^1.2.0",
     "cors": "latest",
-    "dotenv": "latest"
+    "dotenv": "latest",
+    "express": "latest",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
+    "concurrently": "latest",
+    "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest",
     "recharts": "latest",
-    "concurrently": "latest"
+    "typescript": "latest",
+    "vite": "latest"
   }
 }

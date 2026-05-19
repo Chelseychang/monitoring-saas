@@ -6,14 +6,31 @@ import crypto from 'crypto';
 dotenv.config();
 
 const app = express();
+
+// CORS configuration
+const allowedOrigins = [
+  'https://intelligencemonitoring.vercel.app',
+  'http://localhost:5173'
+];
+
 app.use(cors({
-  origin: ['https://intelligencemonitoring.vercel.app', 'http://localhost:5173'],
-  methods: ['GET', 'POST'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
 app.use(express.json({ limit: '1mb' }));
 
-const PORT = process.env.PUSH_SERVER_PORT || 8787;
+const PORT = process.env.PORT || process.env.PUSH_SERVER_PORT || 8787;
 const WEBHOOK_URL = process.env.LARK_WEBHOOK_URL || '';
 const BOT_SECRET = process.env.LARK_BOT_SECRET || '';
 const PLATFORM_URL = process.env.MONITORING_PLATFORM_URL || 'http://localhost:5173';

@@ -1,0 +1,27 @@
+{
+  "name": "telegram-saas-prod-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "dev:push": "node server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:push\"",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "latest",
+    "recharts": "latest",
+    "express": "latest",
+    "cors": "latest",
+    "dotenv": "latest",
+    "concurrently": "latest"
+  },
+  "devDependencies": {}
+}

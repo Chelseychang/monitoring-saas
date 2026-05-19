@@ -8,7 +8,7 @@
     "dev": "vite --host 0.0.0.0",
     "dev:push": "node server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:push\"",
-    "build": "echo 'Backend only - no build needed'",
+    "build": "vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

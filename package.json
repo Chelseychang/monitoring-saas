@@ -11,6 +11,11 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "express": "latest",
+    "cors": "latest",
+    "dotenv": "latest"
+  },
+  "devDependencies": {
     "@vitejs/plugin-react": "latest",
     "vite": "latest",
     "typescript": "latest",
@@ -18,9 +23,6 @@
     "react-dom": "latest",
     "lucide-react": "latest",
     "recharts": "latest",
-    "express": "latest",
-    "cors": "latest",
-    "dotenv": "latest",
     "concurrently": "latest"
   },
   "devDependencies": {}

@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node server.js",
     "dev": "vite --host 0.0.0.0",
     "dev:push": "node server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:push\"",
-    "build": "vite build",
+    "build": "echo 'Backend only - no build needed'",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
@@ -24,6 +25,5 @@
     "lucide-react": "latest",
     "recharts": "latest",
     "concurrently": "latest"
-  },
-  "devDependencies": {}
+  }
 }

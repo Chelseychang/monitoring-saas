@@ -85,7 +85,7 @@ function Dashboard(){const[query,setQuery]=useState('');const[filter,setFilter]=
         <h3>{larkPreview.item.title}</h3>
         <p>{larkPreview.item.summary}</p>
         <div className="larkFields"><span><b>标签</b>{larkPreview.item.tags.map(t=>'#'+t).join(' ')}</span><span><b>时间</b>{larkPreview.item.time}</span><span><b>分类</b>{larkPreview.item.category}</span><span><b>AI Score</b>{larkPreview.item.score}</span></div>
-        <div className="larkButtons"><a href={toPlatformUrl(larkPreview.item.detailUrl||('/intelligence/'+larkPreview.item.id))} target="_blank">打开监控平台</a><a href={larkPreview.item.sourceUrl || ('https://t.me/s/'+larkPreview.item.handle)} target="_blank">打开对应信息源</a></div>
+        <div className="larkButtons"><a href={larkPreview.item.sourceUrl || ('https://t.me/s/'+larkPreview.item.handle)} target="_blank">打开对应信息源</a></div>
       </div>
       <div className="pushStatus">状态：{larkPreview.status==='sent'?(larkPreview.mocked?'Mock 预览（未配置 Webhook）':'已发送到 Lark'):(larkPreview.status==='failed'?'发送失败':'准备发送')}</div><details><summary>查看 Lark JSON payload</summary><pre>{JSON.stringify(larkPreview.payload,null,2)}</pre></details>
     </div>}

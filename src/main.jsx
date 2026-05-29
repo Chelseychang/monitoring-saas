@@ -372,8 +372,8 @@ async function sendLarkPush(item) {
   }
 }
 
-async function refreshTelegramFromBackend() {
-  return postJson('/api/telegram/refresh', {});
+async function refreshAllSourcesFromBackend() {
+  return postJson('/api/all/refresh', {});
 }
 
 function Badge({ children, type = 'default' }) {
@@ -506,7 +506,7 @@ function Dashboard() {
     setRefreshing(true);
 
     try {
-      const data = await refreshTelegramFromBackend();
+      const data = await refreshAllSourcesFromBackend();
       const items = data.items || [];
 
       if (items.length) {
@@ -602,8 +602,8 @@ function Dashboard() {
           <span className="eyebrow">
             <Radio size={14} /> 5 channels live
           </span>
-          <h1>Telegram 竞对监控 Dashboard</h1>
-          <p>Production-grade SaaS demo for Exness, Binance and OKX Telegram intelligence monitoring.</p>
+          <h1>多源金融情报监控 Dashboard</h1>
+          <p>Telegram + TradingView financial intelligence monitoring with AI scoring and Lark push.</p>
         </div>
 
         <div className="topActions">

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 
 import { buildLarkCard, sendLarkItem } from './larkPush.js';
 import { refreshTelegramChannels } from './telegramCrawler.js';
+import { refreshTradingViewNews } from './tradingviewCrawler.js';
 import { startCronJobs } from './cronJobs.js';
 
 dotenv.config();
@@ -79,6 +80,39 @@ app.post('/api/telegram/refresh', async (_req, res) => {
   try {
     const result = await refreshTelegramChannels({ push: true });
     res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/api/tradingview/refresh', async (_req, res) => {
+  try {
+    const result = await refreshTradingViewNews({ push: true });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/api/all/refresh', async (_req, res) => {
+  try {
+    const [telegram, tradingview] = await Promise.all([
+      refreshTelegramChannels({ push: true }),
+      refreshTradingViewNews({ push: true })
+    ]);
+
+    res.json({
+      ok: true,
+      count: (telegram.count || 0) + (tradingview.count || 0),
+      items: [...(telegram.items || []), ...(tradingview.items || [])],
+      sources: { telegram, tradingview }
+    });
   } catch (error) {
     res.status(500).json({
       ok: false,

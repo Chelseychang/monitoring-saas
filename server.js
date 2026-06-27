@@ -1,6 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 import { buildLarkCard, sendLarkItem } from './larkPush.js';
 import { refreshTelegramChannels } from './telegramCrawler.js';
@@ -625,6 +631,19 @@ app.get('/*', (req, res) => {
 // 异步启动函数
 async function startServer() {
   try {
+    // 0. 验证前端构建文件
+    const distPath = join(__dirname, 'dist');
+    const indexPath = join(distPath, 'index.html');
+
+    if (!existsSync(distPath)) {
+      console.warn('⚠️  dist/ directory not found - frontend will not be served');
+      console.warn('   API endpoints will still work at /api/*');
+    } else if (!existsSync(indexPath)) {
+      console.warn('⚠️  dist/index.html not found - frontend may not load correctly');
+    } else {
+      console.log('✅ Frontend build found at dist/');
+    }
+
     // 1. 初始化数据库
     console.log('🔧 Initializing database...');
     await initDatabase();

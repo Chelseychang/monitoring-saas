@@ -6,6 +6,17 @@ import { buildLarkCard, sendLarkItem } from './larkPush.js';
 import { refreshTelegramChannels } from './telegramCrawler.js';
 import { refreshTradingViewNews } from './tradingviewCrawler.js';
 import { startCronJobs } from './cronJobs.js';
+import { getAnalytics, cleanupOldRecords } from './database.js';
+import { getMaskingConfig } from './dataMasking.js';
+import {
+  generateDailyReport,
+  generateWeeklyReport,
+  generateTrendReport,
+  generateBrandComparisonReport,
+  generateCategoryHeatmap,
+  generateComplianceReport,
+  exportToCsv
+} from './analyticsTemplates.js';
 
 dotenv.config();
 
@@ -50,7 +61,11 @@ app.get('/health', (_req, res) => {
     service: 'telegram-monitoring-api',
     webhookConfigured: Boolean(process.env.LARK_WEBHOOK_URL),
     platformUrl: process.env.MONITORING_PLATFORM_URL || 'http://localhost:5173',
-    telegramCronEnabled: process.env.ENABLE_TELEGRAM_CRON === 'true'
+    telegramCronEnabled: process.env.ENABLE_TELEGRAM_CRON === 'true',
+    p1Features: {
+      dataMasking: process.env.ENABLE_DATA_MASKING !== 'false',
+      auditLog: process.env.ENABLE_AUDIT_LOG !== 'false'
+    }
   });
 });
 
@@ -118,6 +133,212 @@ app.post('/api/all/refresh', async (_req, res) => {
       ok: false,
       error: error.message
     });
+  }
+});
+
+// ============ P1: Analytics API ============
+
+// 获取原始分析数据
+app.get('/api/analytics/raw', (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const analytics = getAnalytics(startDate, endDate);
+
+    if (!analytics) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Analytics not available (audit log may be disabled)'
+      });
+    }
+
+    res.json({ ok: true, data: analytics });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 日报
+app.get('/api/analytics/daily', (req, res) => {
+  try {
+    const { date } = req.query;
+    const report = generateDailyReport(date);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 周报
+app.get('/api/analytics/weekly', (req, res) => {
+  try {
+    const weekOffset = parseInt(req.query.weekOffset) || 0;
+    const report = generateWeeklyReport(weekOffset);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 趋势分析
+app.get('/api/analytics/trend', (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const report = generateTrendReport(days);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 品牌对比
+app.post('/api/analytics/brand-comparison', (req, res) => {
+  try {
+    const { brands, days = 30 } = req.body;
+
+    if (!brands || !Array.isArray(brands)) {
+      return res.status(400).json({
+        ok: false,
+        error: 'brands array is required'
+      });
+    }
+
+    const report = generateBrandComparisonReport(brands, days);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 分类热力图
+app.get('/api/analytics/category-heatmap', (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const report = generateCategoryHeatmap(days);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 合规审计报告
+app.get('/api/analytics/compliance', (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const report = generateComplianceReport(startDate, endDate);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 导出CSV
+app.get('/api/analytics/export/csv', (req, res) => {
+  try {
+    const { type = 'daily', date } = req.query;
+
+    let report;
+    if (type === 'daily') {
+      report = generateDailyReport(date);
+    } else if (type === 'trend') {
+      const days = parseInt(req.query.days) || 7;
+      report = generateTrendReport(days);
+    }
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    const csv = exportToCsv(report, type);
+
+    if (!csv) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Invalid export type'
+      });
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="report-${type}-${Date.now()}.csv"`);
+    res.send(csv);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 数据清理（管理员功能）
+app.post('/api/admin/cleanup', (req, res) => {
+  try {
+    const retentionDays = parseInt(req.body.retentionDays) || 90;
+    const deleted = cleanupOldRecords(retentionDays);
+
+    res.json({
+      ok: true,
+      deleted,
+      message: `Cleaned up ${deleted} records older than ${retentionDays} days`
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 获取脱敏配置
+app.get('/api/config/masking', (_req, res) => {
+  try {
+    const config = getMaskingConfig();
+    res.json({ ok: true, config });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 

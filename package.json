@@ -19,7 +19,8 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "sql.js": "^1.10.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "latest",

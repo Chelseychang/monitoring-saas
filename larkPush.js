@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { maskItem } from './dataMasking.js';
+import { logPush, logAiDecision } from './database.js';
 
 const WEBHOOK_URL = process.env.LARK_WEBHOOK_URL || '';
 const BOT_SECRET = process.env.LARK_BOT_SECRET || '';
@@ -123,10 +125,27 @@ export function buildLarkCard(item) {
 }
 
 export async function sendLarkItem(item) {
-  const payload = buildLarkCard(item);
+  // P1: 数据脱敏（在推送前）
+  const maskedItem = maskItem(item, {
+    patterns: null, // 使用所有脱敏模式
+    fields: ['title', 'summary'], // 脱敏标题和摘要
+    logToDb: true // 记录到审计日志
+  });
+
+  // P1: 记录AI决策
+  const decision = item.score >= 70 ? 'pushed' : 'skipped';
+  logAiDecision(item.id, item.score, decision, {
+    brand: item.brand,
+    category: item.category,
+    reason: `Score ${item.score} ${decision === 'pushed' ? '>=' : '<'} threshold 70`
+  });
+
+  const payload = buildLarkCard(maskedItem);
 
   if (!WEBHOOK_URL) {
-    console.log('[Lark Mock]', item.title);
+    console.log('[Lark Mock]', maskedItem.title);
+    // 模拟模式也记录日志
+    logPush(maskedItem, { mocked: true }, true);
     return {
       ok: true,
       mocked: true,
@@ -142,26 +161,37 @@ export async function sendLarkItem(item) {
     body.sign = sign(timestamp, BOT_SECRET);
   }
 
-  const response = await fetch(WEBHOOK_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-
-  const text = await response.text();
-
-  let data;
   try {
-    data = JSON.parse(text);
-  } catch {
-    data = { raw: text };
-  }
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
 
-  return {
-    ok: response.ok,
-    lark: data,
-    payload: body
-  };
+    const text = await response.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+
+    const success = response.ok;
+
+    // P1: 记录推送日志
+    logPush(maskedItem, data, success, success ? null : data.msg || 'Unknown error');
+
+    return {
+      ok: success,
+      lark: data,
+      payload: body
+    };
+  } catch (error) {
+    // P1: 记录推送失败
+    logPush(maskedItem, null, false, error.message);
+    throw error;
+  }
 }

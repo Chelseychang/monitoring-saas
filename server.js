@@ -614,7 +614,8 @@ app.post('/api/admin/crawlers/test-selector', async (req, res) => {
 app.use(express.static('dist'));
 
 // SPA fallback - 所有非 API 路由返回 index.html
-app.get('*', (req, res) => {
+// Express 5.x requires explicit path pattern instead of bare '*'
+app.get('/*', (req, res) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile('index.html', { root: 'dist' });
   }

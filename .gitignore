@@ -31,3 +31,15 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 .vercel
+
+# Database
+data/
+*.db
+*.db-journal
+
+# Temporary files
+migrate-regions.js
+update-regions.sql
+src/components/*-old.jsx
+STAGE4_SUMMARY.md
+DEPLOYMENT_CHECKLIST.md

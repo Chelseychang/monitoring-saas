@@ -1,4 +1,12 @@
+import { detectRegion } from './regionDetector.js';
+
 export function analyzeTelegramMessage({ brand, handle, text, url, publishedAt }) {
+  // 品牌名规范化：合并同一品牌的不同频道
+  const normalizedBrand = brand
+    .replace(/\s+Campaign$/i, '')  // "OKX Campaign" -> "OKX"
+    .replace(/\s+CN$/i, ' CN')     // 保留 "Binance CN"
+    .trim();
+
   const lower = String(text || '').toLowerCase();
 
   const tags = [];
@@ -32,7 +40,7 @@ export function analyzeTelegramMessage({ brand, handle, text, url, publishedAt }
   if (tags.includes('launch')) score += 15;
   if (tags.includes('product')) score += 10;
   if (/bonus|reward|airdrop|奖励|空投|\$|%/.test(lower)) score += 10;
-  if (['Binance', 'OKX'].includes(brand)) score += 5;
+  if (['Binance', 'OKX'].includes(normalizedBrand)) score += 5;
 
   score = Math.min(score, 100);
 
@@ -43,11 +51,14 @@ export function analyzeTelegramMessage({ brand, handle, text, url, publishedAt }
 
   const id = `${handle}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+  // 检测区域
+  const region = detectRegion(text);
+
   return {
     id,
-    brand,
+    brand: normalizedBrand,
     handle,
-    title: text.slice(0, 90) || `${brand} Telegram Update`,
+    title: text.slice(0, 90) || `${normalizedBrand} Telegram Update`,
     summary: text.slice(0, 300),
     category,
     score,
@@ -60,6 +71,7 @@ export function analyzeTelegramMessage({ brand, handle, text, url, publishedAt }
     owner: 'Auto Monitor',
     sourceUrl: url,
     detailUrl: `/intelligence/${id}`,
+    region,
     pushed: false
   };
 }

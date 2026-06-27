@@ -71,15 +71,25 @@ export const DEFAULT_PANELS = [
     editable: true,
     size: 'large'
   },
+  {
+    id: 'chart-source',
+    type: 'chart',
+    visible: true,
+    order: 7,
+    title: '来源类型分布',
+    subtitle: 'Source type distribution',
+    editable: true,
+    size: 'large'
+  },
 
   // 内容区域（3个）
   {
     id: 'content-channels',
     type: 'content',
     visible: true,
-    order: 7,
-    title: '监听频道',
-    subtitle: 'Telegram source health',
+    order: 8,
+    title: '监听源',
+    subtitle: 'Telegram channels + Web crawlers',
     editable: true,
     size: 'medium'
   },
@@ -87,7 +97,7 @@ export const DEFAULT_PANELS = [
     id: 'content-feed',
     type: 'content',
     visible: true,
-    order: 8,
+    order: 9,
     title: '实时情报信息流',
     subtitle: 'Search, filter and triage competitor movements',
     editable: true,
@@ -97,7 +107,7 @@ export const DEFAULT_PANELS = [
     id: 'content-notifications',
     type: 'content',
     visible: true,
-    order: 9,
+    order: 10,
     title: '站内消息中心',
     subtitle: '普通情报默认进入站内消息；高优先级可同时推送 Lark。',
     editable: true,
@@ -109,7 +119,7 @@ export const DEFAULT_PANELS = [
     id: 'lark',
     type: 'preview',
     visible: true,
-    order: 10,
+    order: 11,
     title: 'Lark 消息预览',
     subtitle: '消息包含标签、时间、详情，并提供两个跳转按钮。',
     editable: true,

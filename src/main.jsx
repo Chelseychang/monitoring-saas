@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import ChannelsPage from './ChannelsPage.jsx';
+import ReportsPage from './components/ReportsPage.jsx';
 import {
   AreaChart,
   Area,
@@ -149,7 +150,9 @@ const initialIntel = [
     time: '10:42',
     pushed: true,
     tags: ['futures', 'campaign', 'reward'],
+    sourceType: 'telegram',
     owner: 'Product Strategy',
+    sourceType: 'telegram',
     sourceUrl: 'https://t.me/s/binance_announcements',
     detailUrl: '/intelligence/1'
   },
@@ -166,6 +169,7 @@ const initialIntel = [
     time: '10:36',
     pushed: true,
     tags: ['copy trading', 'bonus'],
+    sourceType: 'telegram',
     owner: 'Growth',
     sourceUrl: 'https://t.me/s/okx_campaign_announcements',
     detailUrl: '/intelligence/2'
@@ -182,6 +186,7 @@ const initialIntel = [
     time: '10:18',
     pushed: false,
     tags: ['活动', '奖励', '新币'],
+    sourceType: 'telegram',
     owner: 'CN Market',
     sourceUrl: 'https://t.me/s/binance_cn',
     detailUrl: '/intelligence/3'
@@ -198,6 +203,7 @@ const initialIntel = [
     time: '09:55',
     pushed: false,
     tags: ['product', 'regional'],
+    sourceType: 'telegram',
     owner: 'PM',
     sourceUrl: 'https://t.me/s/exnessasiaupdates',
     detailUrl: '/intelligence/4'
@@ -214,6 +220,7 @@ const initialIntel = [
     time: '09:31',
     pushed: false,
     tags: ['maintenance', 'system'],
+    sourceType: 'telegram',
     owner: 'Ops',
     sourceUrl: 'https://t.me/s/OKXAnnouncements',
     detailUrl: '/intelligence/5'
@@ -251,6 +258,7 @@ const samples = [
     score: 84,
     level: 'High',
     tags: ['earn', 'launch', 'reward'],
+    sourceType: 'telegram',
     owner: 'Product',
     sourceUrl: 'https://t.me/s/OKXAnnouncements',
     detailUrl: '/intelligence/new-earn'
@@ -265,6 +273,7 @@ const samples = [
     score: 95,
     level: 'Critical',
     tags: ['launchpool', 'campaign', 'token'],
+    sourceType: 'telegram',
     owner: 'Growth',
     sourceUrl: 'https://t.me/s/binance_announcements',
     detailUrl: '/intelligence/launchpool'
@@ -580,11 +589,95 @@ function Dashboard() {
   const [editingPanel, setEditingPanel] = useState(null);
   const [dashboardTitle, setDashboardTitle] = useState(DEFAULT_DASHBOARD_TITLE);
 
+  // 后端统计数据
+  const [analytics, setAnalytics] = useState(null);
+  const [trendData, setTrendData] = useState([]);
+  const [monitoringSources, setMonitoringSources] = useState([]);
+
   // 加载面板配置和标题
   useEffect(() => {
     setPanels(loadPanelConfig());
     setDashboardTitle(loadDashboardTitle());
+    fetchAnalytics();
   }, []);
+
+  // 获取后端统计数据
+  async function fetchAnalytics() {
+    try {
+      const res = await fetch(`${PUSH_API_URL}/api/analytics/raw`);
+      const data = await res.json();
+      if (data.ok) {
+        setAnalytics(data.data);
+      }
+
+      // 获取7天趋势数据 - 暂时使用模拟数据以展示多品牌趋势
+      // TODO: 当有更多历史数据后，从后端获取真实的每日品牌分布
+      const mockTrendData = [
+        { d: 'Mon', Telegram: 8, '网站爬虫': 2 },
+        { d: 'Tue', Telegram: 10, '网站爬虫': 3 },
+        { d: 'Wed', Telegram: 7, '网站爬虫': 2 },
+        { d: 'Thu', Telegram: 11, '网站爬虫': 3 },
+        { d: 'Fri', Telegram: 9, '网站爬虫': 3 },
+        { d: 'Sat', Telegram: 12, '网站爬虫': 3 },
+        { d: 'Sun', Telegram: 14, '网站爬虫': 4 }
+      ];
+      setTrendData(mockTrendData);
+
+      // 获取监听源数据
+      await fetchMonitoringSources();
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+    }
+  }
+
+  // 获取监听源列表
+  async function fetchMonitoringSources() {
+    try {
+      // 获取 Telegram 频道
+      const telegramRes = await fetch(`${PUSH_API_URL}/api/admin/channels/telegram`);
+      const telegramData = await telegramRes.json();
+
+      // 获取网站爬虫
+      const crawlersRes = await fetch(`${PUSH_API_URL}/api/admin/crawlers/web`);
+      const crawlersData = await crawlersRes.json();
+
+      const sources = [];
+
+      // 添加 Telegram 频道
+      if (telegramData.ok && telegramData.channels) {
+        telegramData.channels.forEach(ch => {
+          sources.push({
+            id: ch.id,
+            type: 'telegram',
+            name: ch.brand,
+            handle: ch.handle,
+            url: `https://t.me/s/${ch.handle}`,
+            enabled: ch.enabled,
+            level: ch.level || 'High'
+          });
+        });
+      }
+
+      // 添加网站爬虫
+      if (crawlersData.ok && crawlersData.crawlers) {
+        crawlersData.crawlers.forEach(cr => {
+          sources.push({
+            id: cr.id,
+            type: 'web',
+            name: cr.name,
+            handle: new URL(cr.url).hostname,
+            url: cr.url,
+            enabled: cr.enabled,
+            level: cr.level || 'Medium'
+          });
+        });
+      }
+
+      setMonitoringSources(sources);
+    } catch (error) {
+      console.error('Failed to fetch monitoring sources:', error);
+    }
+  }
 
   const filtered = useMemo(() => {
     return intel.filter((x) => {
@@ -621,6 +714,9 @@ function Dashboard() {
         title: '刷新完成',
         msg: `已从后端抓取 ${data.count || items.length || 0} 条 Telegram 新情报，并自动处理 Lark 推送规则。`
       });
+
+      // 刷新统计数据
+      fetchAnalytics();
     } catch (err) {
       const s = samples[Math.floor(Math.random() * samples.length)];
       const d = new Date();
@@ -790,11 +886,24 @@ function Dashboard() {
     // 统计卡片
     if (panel.type === 'stat') {
       let value = '0';
+      let subtitle = panel.subtitle;
       const Icon = iconMap[panel.icon] || Activity;
 
       switch (panel.id) {
         case 'stat-intelligence':
-          value = total;
+          // 使用后端统计数据
+          if (analytics && analytics.bySource) {
+            value = analytics.summary.total_pushes;
+            // 动态生成来源分布文本
+            const sourceStats = analytics.bySource.map(s => {
+              const label = s.source_type === 'telegram' ? 'Telegram' :
+                           s.source_type === 'tradingview' ? '网站爬虫' : s.source_type;
+              return `${label}: ${s.count}`;
+            }).join(' | ');
+            subtitle = sourceStats || panel.subtitle;
+          } else {
+            value = total;
+          }
           break;
         case 'stat-priority':
           value = intel.filter((x) => x.score >= 80).length;
@@ -807,12 +916,14 @@ function Dashboard() {
           break;
       }
 
-      return <Stat title={panel.title} value={value} icon={Icon} delta={panel.subtitle} />;
+      return <Stat title={panel.title} value={value} icon={Icon} delta={subtitle} />;
     }
 
     // 图表卡片
     if (panel.type === 'chart') {
       if (panel.id === 'chart-trend') {
+        const displayData = trendData.length > 0 ? trendData : trend;
+
         return (
           <div className="card chartCard">
             <div className="cardHeader">
@@ -824,7 +935,7 @@ function Dashboard() {
             </div>
 
             <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={trend}>
+              <AreaChart data={displayData}>
                 <defs>
                   <linearGradient id="b" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
@@ -835,14 +946,19 @@ function Dashboard() {
                 <XAxis dataKey="d" />
                 <YAxis />
                 <Tooltip />
-                <Area type="monotone" dataKey="Binance" stroke="#2563eb" fill="url(#b)" />
-                <Area type="monotone" dataKey="OKX" stroke="#7c3aed" fill="transparent" />
-                <Area type="monotone" dataKey="Exness" stroke="#f97316" fill="transparent" />
+                <Area type="monotone" dataKey="Telegram" stroke="#2563eb" fill="url(#b)" />
+                <Area type="monotone" dataKey="网站爬虫" stroke="#f97316" fill="transparent" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         );
       } else if (panel.id === 'chart-category') {
+        // 分类分布饼图 - 使用真实数据
+        const categoryData = analytics && analytics.byCategory ? analytics.byCategory.map(c => ({
+          name: c.category,
+          value: c.count
+        })) : cats;
+
         return (
           <div className="card chartCard">
             <div className="cardHeader">
@@ -855,8 +971,8 @@ function Dashboard() {
 
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={cats} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90}>
-                  {cats.map((e, i) => (
+                <Pie data={categoryData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90}>
+                  {categoryData.map((e, i) => (
                     <Cell key={e.name} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
@@ -865,12 +981,59 @@ function Dashboard() {
             </ResponsiveContainer>
 
             <div className="legend">
-              {cats.map((c, i) => (
+              {categoryData.map((c, i) => (
                 <span key={c.name}>
-                  <i style={{ background: COLORS[i] }} /> {c.name}
+                  <i style={{ background: COLORS[i] }} /> {c.name}: {c.value}
                 </span>
               ))}
             </div>
+          </div>
+        );
+      } else if (panel.id === 'chart-source') {
+        // 来源类型分布饼图
+        const sourceData = analytics && analytics.bySource ? analytics.bySource.map(s => ({
+          name: s.source_type === 'telegram' ? 'Telegram' :
+                s.source_type === 'tradingview' ? '网站爬虫' : s.source_type,
+          value: s.count
+        })) : [];
+
+        return (
+          <div className="card chartCard">
+            <div className="cardHeader">
+              <div>
+                <h2>{panel.title}</h2>
+                <p>{panel.subtitle}</p>
+              </div>
+              <Database size={18} />
+            </div>
+
+            {sourceData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie data={sourceData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90}>
+                      {sourceData.map((e, i) => (
+                        <Cell key={e.name} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                <div className="legend">
+                  {sourceData.map((c, i) => (
+                    <span key={c.name}>
+                      <i style={{ background: COLORS[i] }} /> {c.name}: {c.value}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                <Database size={48} style={{ opacity: 0.3, margin: '0 auto 16px' }} />
+                <p>暂无数据</p>
+              </div>
+            )}
           </div>
         );
       }
@@ -879,6 +1042,16 @@ function Dashboard() {
     // 内容区域
     if (panel.type === 'content') {
       if (panel.id === 'content-channels') {
+        const displaySources = monitoringSources.length > 0 ? monitoringSources : channels.map(c => ({
+          id: c.handle,
+          type: 'telegram',
+          name: c.brand,
+          handle: c.handle,
+          url: c.url,
+          enabled: true,
+          level: c.priority
+        }));
+
         return (
           <aside className="card">
             <div className="cardHeader">
@@ -886,19 +1059,34 @@ function Dashboard() {
                 <h2>{panel.title}</h2>
                 <p>{panel.subtitle}</p>
               </div>
-              <Bot size={18} />
+              <Database size={18} />
             </div>
 
             <div className="channelList">
-              {channels.map((c) => (
-                <a key={c.handle} href={c.url} target="_blank" rel="noreferrer" className="channel">
+              {displaySources.map((source) => (
+                <a
+                  key={source.id}
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`channel ${!source.enabled ? 'disabled' : ''}`}
+                >
                   <div>
-                    <b>{c.brand}</b>
-                    <span>@{c.handle}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <b>{source.name}</b>
+                      {source.type === 'telegram' ? (
+                        <Badge type="info" style={{ fontSize: '10px', padding: '2px 6px' }}>TG</Badge>
+                      ) : (
+                        <Badge type="success" style={{ fontSize: '10px', padding: '2px 6px' }}>WEB</Badge>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '12px', opacity: 0.7 }}>
+                      {source.type === 'telegram' ? `@${source.handle}` : source.handle}
+                    </span>
                   </div>
                   <div className="channelMeta">
-                    <Badge type={c.priority}>{c.priority}</Badge>
-                    <small>{c.today} today · {c.health}%</small>
+                    <Badge type={source.level}>{source.level}</Badge>
+                    {!source.enabled && <small style={{ color: '#94a3b8' }}>已禁用</small>}
                   </div>
                 </a>
               ))}
@@ -941,6 +1129,12 @@ function Dashboard() {
                     <div className="row gap">
                       <Badge type={x.level}>{x.level}</Badge>
                       <Badge>{x.category}</Badge>
+                      {x.sourceType && (
+                        <Badge type="info">
+                          {x.sourceType === 'telegram' ? 'Telegram' :
+                           x.sourceType === 'tradingview' ? '网站' : x.sourceType}
+                        </Badge>
+                      )}
                       {x.pushed && <Badge type="Live">Pushed</Badge>}
                     </div>
 
@@ -1405,7 +1599,8 @@ function App() {
       <div className="main">
         {active === 'Dashboard' && <Dashboard />}
         {active === 'Channels' && <ChannelsPage />}
-        {active !== 'Dashboard' && active !== 'Channels' && <Placeholder active={active} />}
+        {active === 'Reports' && <ReportsPage />}
+        {active !== 'Dashboard' && active !== 'Channels' && active !== 'Reports' && <Placeholder active={active} />}
       </div>
     </div>
   );

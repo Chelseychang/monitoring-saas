@@ -3,7 +3,7 @@
  * 提供数据分析报告模版
  */
 
-import { getAnalytics } from './database.js';
+import { getAnalytics, getBrandCategoryMatrix, getBrandRegionMatrix } from './database.js';
 
 /**
  * 生成日报模版
@@ -116,10 +116,17 @@ export function generateWeeklyReport(weekOffset = 0) {
       successRate: summary.total_pushes > 0
         ? ((summary.successful_pushes / summary.total_pushes) * 100).toFixed(1) + '%'
         : '0%',
-      avgScore: summary.avg_score ? summary.avg_score.toFixed(1) : '0'
+      avgScore: summary.avg_score ? summary.avg_score.toFixed(1) : '0',
+      uniqueBrands: summary.unique_brands || 0
     },
 
-    topBrands: byBrand.slice(0, 10),
+    topBrands: byBrand.slice(0, 10).map((b, i) => ({
+      rank: i + 1,
+      brand: b.brand || 'Unknown',
+      count: b.count,
+      avgScore: b.avg_score ? b.avg_score.toFixed(1) : '0',
+      successRate: ((b.successful / b.count) * 100).toFixed(1) + '%'
+    })),
     categoryDistribution: byCategory,
     aiDecisions
   };
@@ -326,6 +333,220 @@ function generateComplianceRecommendations({ totalOperations, maskedOperations, 
 }
 
 /**
+ * 生成区域活动分析报告
+ */
+export function generateRegionReport(startDate = null, endDate = null) {
+  const analytics = getAnalytics(startDate, endDate);
+  if (!analytics) return null;
+
+  const { summary, byRegion } = analytics;
+
+  if (!byRegion || byRegion.length === 0) {
+    return {
+      title: '区域活动分析',
+      period: { startDate, endDate },
+      byRegion: [],
+      insights: ['暂无区域数据']
+    };
+  }
+
+  const total = summary.total_pushes || 1;
+
+  const regionData = byRegion.map(r => ({
+    region: r.region || 'Global',
+    count: r.count,
+    percentage: ((r.count / total) * 100).toFixed(1),
+    avgScore: r.avg_score ? r.avg_score.toFixed(1) : '0'
+  })).sort((a, b) => b.count - a.count);
+
+  const insights = generateRegionInsights(regionData, total);
+
+  return {
+    title: '区域活动分析',
+    period: { startDate, endDate },
+    byRegion: regionData,
+    insights
+  };
+}
+
+/**
+ * 生成区域洞察
+ */
+function generateRegionInsights(regionData, total) {
+  const insights = [];
+
+  const regionLabels = {
+    'CN': '中国大陆',
+    'LATAM': '拉美地区',
+    'MENA': '中东北非',
+    'ASIA': '亚洲其他',
+    'EU': '欧洲',
+    'US': '北美',
+    'Global': '全球'
+  };
+
+  if (regionData.length === 0) {
+    return ['暂无区域数据'];
+  }
+
+  // 主要活动区域
+  const top = regionData[0];
+  if (top && parseFloat(top.percentage) > 30) {
+    insights.push(`${regionLabels[top.region] || top.region}是主要活动区域，占比 ${top.percentage}%`);
+  } else if (top) {
+    insights.push(`${regionLabels[top.region] || top.region}活动最活跃，占比 ${top.percentage}%`);
+  }
+
+  // 活动较少的区域
+  const low = regionData.filter(r => parseFloat(r.percentage) < 5);
+  if (low.length > 0 && low.length < regionData.length) {
+    const lowNames = low.map(r => regionLabels[r.region] || r.region).join('、');
+    insights.push(`${lowNames}等区域活动较少，占比不足 5%`);
+  }
+
+  // 区域多样性
+  if (regionData.length >= 4) {
+    insights.push(`竞对在 ${regionData.length} 个区域均有活动，市场布局较为多元化`);
+  } else if (regionData.length >= 2) {
+    insights.push(`竞对主要聚焦于 ${regionData.length} 个区域市场`);
+  } else {
+    insights.push('竞对活动主要集中在单一区域');
+  }
+
+  // 评分洞察
+  const highScore = regionData.filter(r => parseFloat(r.avgScore) >= 75);
+  if (highScore.length > 0) {
+    const highNames = highScore.map(r => regionLabels[r.region] || r.region).join('、');
+    insights.push(`${highNames}等区域的消息质量较高（平均分 ≥ 75）`);
+  }
+
+  return insights;
+}
+
+/**
+ * 生成品牌类型交叉分析报告
+ */
+export function generateBrandCategoryReport(startDate = null, endDate = null, brandFilter = null) {
+  const matrix = getBrandCategoryMatrix(startDate, endDate, brandFilter);
+
+  if (!matrix || matrix.length === 0) {
+    return {
+      title: '品牌类型分析',
+      period: { startDate, endDate, brandFilter },
+      matrix: [],
+      brandSummary: [],
+      categorySummary: []
+    };
+  }
+
+  // 按品牌聚合
+  const brandMap = new Map();
+  const categoryMap = new Map();
+
+  matrix.forEach(item => {
+    // 品牌维度统计
+    if (!brandMap.has(item.brand)) {
+      brandMap.set(item.brand, { brand: item.brand, categories: {}, total: 0 });
+    }
+    const brandData = brandMap.get(item.brand);
+    brandData.categories[item.category] = item.count;
+    brandData.total += item.count;
+
+    // 类型维度统计
+    if (!categoryMap.has(item.category)) {
+      categoryMap.set(item.category, 0);
+    }
+    categoryMap.set(item.category, categoryMap.get(item.category) + item.count);
+  });
+
+  // 品牌汇总（带百分比）
+  const brandSummary = Array.from(brandMap.values()).map(b => ({
+    ...b,
+    categories: b.categories
+  })).sort((a, b) => b.total - a.total);
+
+  // 类型汇总
+  const categorySummary = Array.from(categoryMap.entries()).map(([category, count]) => ({
+    category,
+    count
+  })).sort((a, b) => b.count - a.count);
+
+  // 获取所有类型用于表格列
+  const allCategories = Array.from(categoryMap.keys());
+
+  return {
+    title: '品牌类型分析',
+    period: { startDate, endDate, brandFilter },
+    matrix,
+    brandSummary,
+    categorySummary,
+    allCategories
+  };
+}
+
+/**
+ * 生成品牌区域交叉分析报告
+ */
+export function generateBrandRegionReport(startDate = null, endDate = null, brandFilter = null, regionFilter = null) {
+  const matrix = getBrandRegionMatrix(startDate, endDate, brandFilter, regionFilter);
+
+  if (!matrix || matrix.length === 0) {
+    return {
+      title: '品牌区域分析',
+      period: { startDate, endDate, brandFilter, regionFilter },
+      matrix: [],
+      brandSummary: [],
+      regionSummary: [],
+      allRegions: []
+    };
+  }
+
+  // 按品牌聚合
+  const brandMap = new Map();
+  const regionMap = new Map();
+
+  matrix.forEach(item => {
+    // 品牌维度统计
+    if (!brandMap.has(item.brand)) {
+      brandMap.set(item.brand, { brand: item.brand, regions: {}, total: 0 });
+    }
+    const brandData = brandMap.get(item.brand);
+    brandData.regions[item.region] = item.count;
+    brandData.total += item.count;
+
+    // 区域维度统计
+    if (!regionMap.has(item.region)) {
+      regionMap.set(item.region, 0);
+    }
+    regionMap.set(item.region, regionMap.get(item.region) + item.count);
+  });
+
+  // 品牌汇总（按总数排序）
+  const brandSummary = Array.from(brandMap.values()).map(b => ({
+    ...b,
+    regions: b.regions
+  })).sort((a, b) => b.total - a.total);
+
+  // 区域汇总
+  const regionSummary = Array.from(regionMap.entries()).map(([region, count]) => ({
+    region,
+    count
+  })).sort((a, b) => b.count - a.count);
+
+  // 获取所有区域用于表格列
+  const allRegions = Array.from(regionMap.keys());
+
+  return {
+    title: '品牌区域分析',
+    period: { startDate, endDate, brandFilter, regionFilter },
+    matrix,
+    brandSummary,
+    regionSummary,
+    allRegions
+  };
+}
+
+/**
  * 导出CSV格式
  */
 export function exportToCsv(report, type = 'daily') {
@@ -343,6 +564,37 @@ export function exportToCsv(report, type = 'daily') {
     report.dailyData.forEach(d => {
       csv += `${d.date},${d.totalPushes},${d.avgScore},${d.successRate}\n`;
     });
+  } else if (type === 'region') {
+    csv = 'Region,Count,Percentage,Avg Score\n';
+    report.byRegion.forEach(r => {
+      csv += `${r.region},${r.count},${r.percentage}%,${r.avgScore}\n`;
+    });
+  } else if (type === 'brand-category') {
+    // 品牌类型交叉表导出
+    if (report.brandSummary && report.allCategories) {
+      csv = 'Brand,' + report.allCategories.join(',') + ',Total\n';
+      report.brandSummary.forEach(b => {
+        const row = [b.brand];
+        report.allCategories.forEach(cat => {
+          row.push(b.categories[cat] || 0);
+        });
+        row.push(b.total);
+        csv += row.join(',') + '\n';
+      });
+    }
+  } else if (type === 'brand-region') {
+    // 品牌区域交叉表导出
+    if (report.brandSummary && report.allRegions) {
+      csv = 'Brand,' + report.allRegions.join(',') + ',Total\n';
+      report.brandSummary.forEach(b => {
+        const row = [b.brand];
+        report.allRegions.forEach(reg => {
+          row.push(b.regions[reg] || 0);
+        });
+        row.push(b.total);
+        csv += row.join(',') + '\n';
+      });
+    }
   }
 
   return csv;

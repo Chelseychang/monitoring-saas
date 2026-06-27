@@ -17,7 +17,8 @@ import {
   getWebCrawlers,
   addWebCrawler,
   updateWebCrawler,
-  deleteWebCrawler
+  deleteWebCrawler,
+  getAllBrands
 } from './database.js';
 import { getMaskingConfig } from './dataMasking.js';
 import {
@@ -27,6 +28,9 @@ import {
   generateBrandComparisonReport,
   generateCategoryHeatmap,
   generateComplianceReport,
+  generateRegionReport,
+  generateBrandCategoryReport,
+  generateBrandRegionReport,
   exportToCsv
 } from './analyticsTemplates.js';
 
@@ -291,6 +295,73 @@ app.get('/api/analytics/compliance', (req, res) => {
   }
 });
 
+// 区域活动分析报告
+app.get('/api/analytics/region', (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const report = generateRegionReport(startDate, endDate);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 品牌类型交叉分析报告
+app.get('/api/analytics/brand-category', (req, res) => {
+  try {
+    const { startDate, endDate, brand } = req.query;
+    const report = generateBrandCategoryReport(startDate, endDate, brand);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 获取所有品牌列表
+app.get('/api/analytics/brands', (req, res) => {
+  try {
+    const brands = getAllBrands();
+    res.json({ ok: true, brands });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 品牌区域交叉分析报告
+app.get('/api/analytics/brand-region', (req, res) => {
+  try {
+    const { startDate, endDate, brand, region } = req.query;
+    const report = generateBrandRegionReport(startDate, endDate, brand, region);
+
+    if (!report) {
+      return res.status(503).json({
+        ok: false,
+        error: 'Report not available'
+      });
+    }
+
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // 导出CSV
 app.get('/api/analytics/export/csv', (req, res) => {
   try {
@@ -449,13 +520,13 @@ app.get('/api/admin/crawlers/web', (_req, res) => {
 
 app.post('/api/admin/crawlers/web', (req, res) => {
   try {
-    const { name, url, crawler_type, selector } = req.body;
+    const { name, url, crawler_type, selector, level } = req.body;
 
     if (!name || !url) {
       return res.status(400).json({ ok: false, error: 'Name and URL are required' });
     }
 
-    const id = addWebCrawler(name, url, crawler_type || 'tradingview', selector);
+    const id = addWebCrawler(name, url, crawler_type || 'tradingview', selector, level || 'Medium');
     res.json({ ok: true, id, message: 'Crawler added successfully' });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });

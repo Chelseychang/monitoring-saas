@@ -1,3 +1,5 @@
+import { detectRegion } from './regionDetector.js';
+
 export function analyzeTradingViewNews({ sourceName, title, summary, url, publishedAt }) {
   const text = `${title || ''} ${summary || ''}`;
   const lower = text.toLowerCase();
@@ -37,6 +39,10 @@ export function analyzeTradingViewNews({ sourceName, title, summary, url, publis
 
   const id = `tradingview-${Buffer.from(url || title || Date.now().toString()).toString('base64url').slice(0, 18)}`;
 
+  // 检测区域
+  const combinedText = `${title || ''} ${summary || ''}`;
+  const region = detectRegion(combinedText);
+
   return {
     id,
     sourceType: 'tradingview',
@@ -55,6 +61,7 @@ export function analyzeTradingViewNews({ sourceName, title, summary, url, publis
     owner: 'Market Intelligence',
     sourceUrl: url,
     detailUrl: `/intelligence/${id}`,
+    region,
     pushed: false
   };
 }

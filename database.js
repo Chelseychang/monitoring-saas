@@ -62,6 +62,7 @@ export async function initDatabase() {
         title TEXT,
         summary TEXT,
         source_type TEXT,
+        region TEXT,
         pushed_at TEXT DEFAULT CURRENT_TIMESTAMP,
         lark_response TEXT,
         success INTEGER DEFAULT 1,
@@ -72,6 +73,15 @@ export async function initDatabase() {
     db.run(`CREATE INDEX IF NOT EXISTS idx_push_log_item_id ON push_log(item_id);`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_push_log_pushed_at ON push_log(pushed_at);`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_push_log_brand ON push_log(brand);`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_push_log_region ON push_log(region);`);
+
+    // 迁移：为已存在的数据库添加 region 列
+    try {
+      db.run(`ALTER TABLE push_log ADD COLUMN region TEXT;`);
+      console.log('✅ Migration: Added region column to push_log');
+    } catch (e) {
+      // 列已存在，忽略错误
+    }
 
     db.run(`
       CREATE TABLE IF NOT EXISTS ai_decision_log (
@@ -147,6 +157,7 @@ export async function initDatabase() {
         url TEXT NOT NULL,
         crawler_type TEXT DEFAULT 'tradingview',
         selector TEXT,
+        level TEXT DEFAULT 'Medium',
         enabled INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -154,6 +165,14 @@ export async function initDatabase() {
     `);
 
     db.run(`CREATE INDEX IF NOT EXISTS idx_web_crawlers_enabled ON web_crawlers(enabled);`);
+
+    // 迁移：为已存在的 web_crawlers 表添加 level 列
+    try {
+      db.run(`ALTER TABLE web_crawlers ADD COLUMN level TEXT DEFAULT 'Medium';`);
+      console.log('✅ Migration: Added level column to web_crawlers');
+    } catch (e) {
+      // 列已存在，忽略错误
+    }
 
     // 持久化到磁盘
     saveDatabase();
@@ -189,9 +208,9 @@ export function logPush(item, larkResponse, success = true, errorMessage = null)
   try {
     db.run(
       `INSERT INTO push_log (
-        item_id, brand, category, score, title, summary, source_type,
+        item_id, brand, category, score, title, summary, source_type, region,
         lark_response, success, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.brand || null,
@@ -200,6 +219,7 @@ export function logPush(item, larkResponse, success = true, errorMessage = null)
         item.title || null,
         item.summary || null,
         item.sourceType || null,
+        item.region || 'Global',
         JSON.stringify(larkResponse),
         success ? 1 : 0,
         errorMessage
@@ -444,11 +464,49 @@ export function getAnalytics(startDate = null, endDate = null) {
       count: row[1]
     }));
 
+    // 按区域统计
+    const byRegionResult = db.exec(`
+      SELECT
+        region,
+        COUNT(*) as count,
+        AVG(score) as avg_score
+      FROM push_log
+      ${dateFilter}
+      GROUP BY region
+      ORDER BY count DESC
+    `);
+
+    const byRegion = (byRegionResult[0]?.values || []).map(row => ({
+      region: row[0] || 'Global',
+      count: row[1],
+      avg_score: row[2]
+    }));
+
+    // 按来源类型统计
+    const bySourceResult = db.exec(`
+      SELECT
+        COALESCE(source_type, 'unknown') as source_type,
+        COUNT(*) as count,
+        AVG(score) as avg_score
+      FROM push_log
+      ${dateFilter}
+      GROUP BY source_type
+      ORDER BY count DESC
+    `);
+
+    const bySource = (bySourceResult[0]?.values || []).map(row => ({
+      source_type: row[0],
+      count: row[1],
+      avg_score: row[2]
+    }));
+
     return {
       summary,
       byBrand,
       byCategory,
       byHour,
+      byRegion,
+      bySource,
       aiDecisions,
       masking: maskingStats,
       errors,
@@ -457,6 +515,126 @@ export function getAnalytics(startDate = null, endDate = null) {
   } catch (error) {
     console.error('Failed to get analytics:', error.message);
     return null;
+  }
+}
+
+/**
+ * 获取品牌 × 类型交叉分析数据
+ */
+export function getBrandCategoryMatrix(startDate = null, endDate = null, brandFilter = null) {
+  if (!ENABLED || !db) return null;
+
+  try {
+    let dateFilter = '';
+    let brandFilterSql = '';
+
+    if (startDate && endDate) {
+      dateFilter = `WHERE pushed_at BETWEEN '${startDate}' AND '${endDate}'`;
+    }
+
+    if (brandFilter && brandFilter !== 'all') {
+      brandFilterSql = dateFilter ? `AND brand = '${brandFilter}'` : `WHERE brand = '${brandFilter}'`;
+    }
+
+    const sql = `
+      SELECT
+        brand,
+        category,
+        COUNT(*) as count,
+        AVG(score) as avg_score
+      FROM push_log
+      ${dateFilter} ${brandFilterSql}
+      GROUP BY brand, category
+      ORDER BY brand, count DESC
+    `;
+
+    const result = db.exec(sql);
+
+    if (!result[0]) return [];
+
+    return result[0].values.map(row => ({
+      brand: row[0] || 'Unknown',
+      category: row[1] || 'Unknown',
+      count: row[2],
+      avg_score: row[3]
+    }));
+  } catch (error) {
+    console.error('Failed to get brand-category matrix:', error.message);
+    return [];
+  }
+}
+
+/**
+ * 获取品牌 × 区域交叉分析数据
+ */
+export function getBrandRegionMatrix(startDate = null, endDate = null, brandFilter = null, regionFilter = null) {
+  if (!ENABLED || !db) return null;
+
+  try {
+    let filters = [];
+
+    if (startDate && endDate) {
+      filters.push(`pushed_at BETWEEN '${startDate}' AND '${endDate}'`);
+    }
+
+    if (brandFilter && brandFilter !== 'all') {
+      filters.push(`brand = '${brandFilter}'`);
+    }
+
+    if (regionFilter && regionFilter !== 'all') {
+      filters.push(`region = '${regionFilter}'`);
+    }
+
+    const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const sql = `
+      SELECT
+        brand,
+        region,
+        COUNT(*) as count,
+        AVG(score) as avg_score
+      FROM push_log
+      ${whereClause}
+      GROUP BY brand, region
+      ORDER BY brand, count DESC
+    `;
+
+    const result = db.exec(sql);
+
+    if (!result[0]) return [];
+
+    return result[0].values.map(row => ({
+      brand: row[0] || 'Unknown',
+      region: row[1] || 'Global',
+      count: row[2],
+      avg_score: row[3]
+    }));
+  } catch (error) {
+    console.error('Failed to get brand-region matrix:', error.message);
+    return [];
+  }
+}
+
+/**
+ * 获取所有品牌列表
+ */
+export function getAllBrands() {
+  if (!ENABLED || !db) return [];
+
+  try {
+    const result = db.exec(`
+      SELECT DISTINCT brand
+      FROM push_log
+      WHERE brand IS NOT NULL
+      ORDER BY brand
+    `);
+
+    if (!result[0]) return [];
+
+    return result[0].values.map(row => row[0]);
+  } catch (error) {
+    console.error('Failed to get brands:', error.message);
+    return [];
   }
 }
 
@@ -636,13 +814,13 @@ export function getWebCrawlers() {
 /**
  * 添加网站爬虫
  */
-export function addWebCrawler(name, url, crawlerType = 'tradingview', selector = null) {
+export function addWebCrawler(name, url, crawlerType = 'tradingview', selector = null, level = 'Medium') {
   if (!db) return null;
   try {
     const id = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     db.run(
-      'INSERT INTO web_crawlers (id, name, url, crawler_type, selector) VALUES (?, ?, ?, ?, ?)',
-      [id, name, url, crawlerType, selector]
+      'INSERT INTO web_crawlers (id, name, url, crawler_type, selector, level) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, name, url, crawlerType, selector, level]
     );
     saveDatabase();
     return id;
@@ -665,6 +843,7 @@ export function updateWebCrawler(id, updates) {
     if (updates.url !== undefined) { fields.push('url = ?'); values.push(updates.url); }
     if (updates.crawler_type !== undefined) { fields.push('crawler_type = ?'); values.push(updates.crawler_type); }
     if (updates.selector !== undefined) { fields.push('selector = ?'); values.push(updates.selector); }
+    if (updates.level !== undefined) { fields.push('level = ?'); values.push(updates.level); }
     if (updates.enabled !== undefined) { fields.push('enabled = ?'); values.push(updates.enabled); }
 
     fields.push('updated_at = CURRENT_TIMESTAMP');

@@ -318,12 +318,12 @@ function AddEditModal({ type, item, onClose, onSuccess }) {
         // 编辑模式：使用现有数据，但确保字段完整
         ...item,
         selector: item.selector || '',  // null 转为空字符串
-        level: item.level || 'High',
+        level: item.level || (type === 'telegram' ? 'High' : 'Medium'),
         crawler_type: item.crawler_type || 'tradingview'
       }
     : (type === 'telegram'
         ? { brand: '', handle: '', level: 'High' }
-        : { name: '', url: '', crawler_type: 'tradingview', selector: '' });
+        : { name: '', url: '', crawler_type: 'tradingview', selector: '', level: 'Medium' });
 
   const [formData, setFormData] = useState(initialFormData);
   const [loading, setLoading] = useState(false);
@@ -502,6 +502,18 @@ function AddEditModal({ type, item, onClose, onSuccess }) {
                 >
                   <option value="tradingview">TradingView</option>
                   <option value="generic">通用</option>
+                </select>
+              </div>
+
+              <div className="formField">
+                <label>优先级</label>
+                <select
+                  value={formData.level || 'Medium'}
+                  onChange={e => setFormData({ ...formData, level: e.target.value })}
+                >
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
                 </select>
               </div>
 

@@ -152,7 +152,6 @@ const initialIntel = [
     tags: ['futures', 'campaign', 'reward'],
     sourceType: 'telegram',
     owner: 'Product Strategy',
-    sourceType: 'telegram',
     sourceUrl: 'https://t.me/s/binance_announcements',
     detailUrl: '/intelligence/1'
   },

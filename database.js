@@ -876,5 +876,5 @@ export function deleteWebCrawler(id) {
   }
 }
 
-// 初始化数据库
-await initDatabase();
+// 初始化数据库 - 延迟到服务器启动前
+// await initDatabase(); // 移除顶层 await，改为在 server.js 中显式调用

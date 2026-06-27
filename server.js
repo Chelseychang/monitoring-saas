@@ -8,6 +8,7 @@ import { refreshTradingViewNews } from './tradingviewCrawler.js';
 import { startCronJobs } from './cronJobs.js';
 import { analyzeWebsiteStructure, testSelector } from './selectorAnalyzer.js';
 import {
+  initDatabase,
   getAnalytics,
   cleanupOldRecords,
   getTelegramChannels,
@@ -621,11 +622,29 @@ app.get('/*', (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Monitoring API running at http://0.0.0.0:${PORT}`);
-  console.log(`📡 Lark webhook: ${process.env.LARK_WEBHOOK_URL ? 'Configured' : 'Not configured'}`);
-  console.log(`🤖 Telegram Cron: ${process.env.ENABLE_TELEGRAM_CRON === 'true' ? 'Enabled' : 'Disabled'}`);
-  console.log(`🌐 TradingView Cron: ${process.env.ENABLE_TRADINGVIEW_CRON === 'true' ? 'Enabled' : 'Disabled'}`);
-});
+// 异步启动函数
+async function startServer() {
+  try {
+    // 1. 初始化数据库
+    console.log('🔧 Initializing database...');
+    await initDatabase();
+    console.log('✅ Database initialized');
 
-startCronJobs();
+    // 2. 启动 HTTP 服务器
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Monitoring API running at http://0.0.0.0:${PORT}`);
+      console.log(`📡 Lark webhook: ${process.env.LARK_WEBHOOK_URL ? 'Configured' : 'Not configured'}`);
+      console.log(`🤖 Telegram Cron: ${process.env.ENABLE_TELEGRAM_CRON === 'true' ? 'Enabled' : 'Disabled'}`);
+      console.log(`🌐 TradingView Cron: ${process.env.ENABLE_TRADINGVIEW_CRON === 'true' ? 'Enabled' : 'Disabled'}`);
+    });
+
+    // 3. 启动定时任务
+    startCronJobs();
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// 启动服务器
+startServer();

@@ -24,23 +24,28 @@ http://localhost:5173
 
 ## 配置真实 Lark Webhook Bot
 
-复制环境变量文件：
+⚠️ **安全提示**: 永远不要将实际的密钥提交到Git！
+
+复制环境变量模板：
 
 ```bash
-cp .env.example .env
+cp .env.template .env
 ```
 
-编辑 `.env`：
+编辑 `.env` 并填入你的实际值：
 
 ```env
-LARK_WEBHOOK_URL=https://open.larksuite.com/open-apis/bot/v2/hook/xxxxxxxx
-LARK_BOT_SECRET=
+LARK_WEBHOOK_URL=https://open.larksuite.com/open-apis/bot/v2/hook/YOUR_WEBHOOK_ID
+LARK_BOT_SECRET=YOUR_SECRET_HERE
 MONITORING_PLATFORM_URL=http://localhost:5173
 PUSH_SERVER_PORT=8787
 VITE_PUSH_API_URL=http://localhost:8787
 ```
 
-如果你的 Lark Bot 开启了签名校验，把 `LARK_BOT_SECRET` 填上。
+**重要**:
+- `.env` 文件已在 `.gitignore` 中，不会被提交
+- 生产环境请在 Railway/Vercel 控制台设置环境变量
+- 如果密钥泄露，立即在 Lark 开放平台重新生成
 
 ## 同时启动前端和 Lark Push Server
 

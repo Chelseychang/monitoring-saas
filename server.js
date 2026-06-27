@@ -619,6 +619,16 @@ app.post('/api/admin/crawlers/test-selector', async (req, res) => {
   }
 });
 
+// 静态文件服务（部署到 Railway 时提供前端）
+app.use(express.static('dist'));
+
+// SPA fallback - 所有非 API 路由返回 index.html
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile('index.html', { root: 'dist' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Monitoring API running at http://localhost:${PORT}`);
   console.log(`Lark webhook configured: ${Boolean(process.env.LARK_WEBHOOK_URL)}`);

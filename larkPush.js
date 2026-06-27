@@ -40,7 +40,8 @@ function buildUrlButton(text, url, type = 'default') {
 }
 
 export function buildLarkCard(item) {
-  const platformUrl = normalizeUrl(PLATFORM_URL, item.detailUrl || `/intelligence/${item.id}`);
+  // 直接跳转到Dashboard首页，而不是具体的情报详情页（前端暂无路由支持）
+  const platformUrl = PLATFORM_URL;
   const sourceUrl = item.sourceUrl || `https://t.me/s/${item.handle}`;
   const tags = (item.tags || []).map((t) => `#${t}`).join(' ');
   const template = item.level === 'Critical' ? 'red' : item.level === 'High' ? 'orange' : 'blue';

@@ -46,6 +46,7 @@ VITE_PUSH_API_URL=http://localhost:8787
 - `.env` 文件已在 `.gitignore` 中，不会被提交
 - 生产环境请在 Railway/Vercel 控制台设置环境变量
 - 如果密钥泄露，立即在 Lark 开放平台重新生成
+- 如果你的 Lark Bot 开启了签名校验，把 `LARK_BOT_SECRET` 填上
 
 ## 同时启动前端和 Lark Push Server
 

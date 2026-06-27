@@ -620,9 +620,11 @@ app.get('*', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Monitoring API running at http://localhost:${PORT}`);
-  console.log(`Lark webhook configured: ${Boolean(process.env.LARK_WEBHOOK_URL)}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Monitoring API running at http://0.0.0.0:${PORT}`);
+  console.log(`📡 Lark webhook: ${process.env.LARK_WEBHOOK_URL ? 'Configured' : 'Not configured'}`);
+  console.log(`🤖 Telegram Cron: ${process.env.ENABLE_TELEGRAM_CRON === 'true' ? 'Enabled' : 'Disabled'}`);
+  console.log(`🌐 TradingView Cron: ${process.env.ENABLE_TRADINGVIEW_CRON === 'true' ? 'Enabled' : 'Disabled'}`);
 });
 
 startCronJobs();

@@ -72,17 +72,8 @@ app.use(express.json({ limit: '1mb' }));
 const PORT = process.env.PORT || process.env.PUSH_SERVER_PORT || 8787;
 
 app.get('/health', (_req, res) => {
-  res.json({
-    ok: true,
-    service: 'telegram-monitoring-api',
-    webhookConfigured: Boolean(process.env.LARK_WEBHOOK_URL),
-    platformUrl: process.env.MONITORING_PLATFORM_URL || 'http://localhost:5173',
-    telegramCronEnabled: process.env.ENABLE_TELEGRAM_CRON === 'true',
-    p1Features: {
-      dataMasking: process.env.ENABLE_DATA_MASKING !== 'false',
-      auditLog: process.env.ENABLE_AUDIT_LOG !== 'false'
-    }
-  });
+  // 简单的健康检查，快速响应
+  res.status(200).send('OK');
 });
 
 app.post('/api/lark/preview', (req, res) => {

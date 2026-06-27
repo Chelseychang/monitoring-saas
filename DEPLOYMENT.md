@@ -18,11 +18,9 @@ npm i -g vercel
 
 ### 2. Deploy
 ```bash
-# Initialize git if not already
-cd /Users/chelsey.chang/Downloads/telegram-saas-prod-demo-v5-lark-button-fix
-git init
-git add .
-git commit -m "Initial commit"
+# Setup local environment
+cp .env.template .env
+# Edit .env and fill in your actual values
 
 # Deploy to Vercel
 vercel

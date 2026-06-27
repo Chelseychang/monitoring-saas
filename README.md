@@ -29,8 +29,11 @@ http://localhost:5173
 复制环境变量模板：
 
 ```bash
+# 从模板创建本地配置文件
 cp .env.template .env
 ```
+
+> **注意**: 以前的 `.env.example` 已被 `.env.template` 替代（更完整的配置说明）
 
 编辑 `.env` 并填入你的实际值：
 

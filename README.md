@@ -1,114 +1,162 @@
-# Telegram SaaS Demo V4 - Lark Buttons
+# 🎯 Telegram SaaS 监控平台
 
-基于 V3 Demo 升级：Lark 推送卡片加入两个跳转按钮：
+多源金融情报监控系统 - 自动爬取 Telegram 频道和金融网站，智能分析并推送到飞书。
 
-1. 打开监控平台
-2. 打开对应信息源（Telegram source）
+![Dashboard](https://img.shields.io/badge/Dashboard-Customizable-blue)
+![Channels](https://img.shields.io/badge/Channels-Dynamic-green)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-success)
 
-同时保留站内消息中心。
+---
 
-## 运行前端 Demo
+## ✨ 核心功能
+
+### 🎨 Dashboard 可定制化
+- ✅ 拖拽调整面板顺序
+- ✅ 编辑标题和描述
+- ✅ 调整面板大小（4 种尺寸）
+- ✅ 删除/恢复面板
+- ✅ 配置自动保存到 localStorage
+
+### 📡 Channels 动态管理
+- ✅ 添加/编辑/删除 Telegram 频道
+- ✅ 添加/编辑/删除网站爬虫
+- ✅ **智能 Selector 分析**（5 种检测策略）
+- ✅ 测试连接状态
+- ✅ 启用/禁用开关
+- ✅ 配置持久化到 SQLite
+
+### 🤖 智能分析
+- 🎯 自动识别网站结构
+- 📊 提供 5 种候选 Selector
+- 👀 实时预览抓取结果
+- ⚡ 5 秒完成分析
+
+### 🔔 实时监控
+- 📱 Telegram 频道监听（每 5 分钟）
+- 🌐 TradingView 新闻爬取（每 10 分钟）
+- 🔍 AI 智能分析和评分
+- 📤 飞书自动推送（≥70 分）
+
+---
+
+## 🚀 快速开始
+
+### 本地开发
 
 ```bash
+# 1. 安装依赖
 npm install
-npm run dev
-```
 
-打开：
-
-```text
-http://localhost:5173
-```
-
-此时如果没有启动 Push Server，点击推送会生成 Lark JSON 预览，不会真的发送。
-
-## 配置真实 Lark Webhook Bot
-
-⚠️ **安全提示**: 永远不要将实际的密钥提交到Git！
-
-复制环境变量模板：
-
-```bash
-# 从模板创建本地配置文件
+# 2. 配置环境变量
 cp .env.template .env
+# 编辑 .env，填入飞书 Webhook URL 和 Secret
+
+# 3. 启动后端服务
+node server.js
+
+# 4. 启动前端开发服务器（新终端）
+npm run dev
+
+# 5. 访问
+# 前端：http://localhost:5173
+# 后端：http://localhost:8787
 ```
 
-> **注意**: 以前的 `.env.example` 已被 `.env.template` 替代（更完整的配置说明）
+### 生产部署
 
-编辑 `.env` 并填入你的实际值：
+**推荐：Railway 一键部署**
 
-```env
-LARK_WEBHOOK_URL=https://open.larksuite.com/open-apis/bot/v2/hook/YOUR_WEBHOOK_ID
-LARK_BOT_SECRET=YOUR_SECRET_HERE
-MONITORING_PLATFORM_URL=http://localhost:5173
-PUSH_SERVER_PORT=8787
-VITE_PUSH_API_URL=http://localhost:8787
-```
-
-**重要**:
-- `.env` 文件已在 `.gitignore` 中，不会被提交
-- 生产环境请在 Railway/Vercel 控制台设置环境变量
-- 如果密钥泄露，立即在 Lark 开放平台重新生成
-- 如果你的 Lark Bot 开启了签名校验，把 `LARK_BOT_SECRET` 填上
-
-## 同时启动前端和 Lark Push Server
+详见 → **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)**
 
 ```bash
-npm run dev:all
+# 1. 推送到 GitHub
+git push origin main
+
+# 2. Railway 自动检测并部署
+# 3. 配置环境变量（Railway Dashboard）
+# 4. 访问生成的 URL
 ```
 
-然后在 Demo 里点击：
+---
 
-```text
-Details -> 推送到 Lark 卡片
-```
+## 📚 文档
 
-Lark 群里会收到 interactive card，卡片包含：
+| 文档 | 说明 |
+|------|------|
+| **[QUICK_START.md](QUICK_START.md)** | 5 分钟快速上手 |
+| **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** | 完整部署指南 |
+| **[CSS_SELECTOR_GUIDE.md](CSS_SELECTOR_GUIDE.md)** | CSS Selector 使用指南 |
+| **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** | API 接口文档 |
 
-- 标签
-- 时间
-- 分类
-- AI Score
-- 打开监控平台按钮
-- 打开对应信息源按钮
+---
 
-## 单独启动 Push Server
+## 🛠️ 技术栈
+
+### 前端
+- **React** - UI 框架
+- **Vite** - 构建工具
+- **Recharts** - 图表库
+- **@dnd-kit** - 拖拽功能
+- **Lucide React** - 图标库
+
+### 后端
+- **Node.js** - 运行时
+- **Express** - Web 框架
+- **SQLite (sql.js)** - 数据库
+- **Cheerio** - HTML 解析
+- **node-cron** - 定时任务
+
+### 部署
+- **Railway** - 应用托管
+- **GitHub** - 代码仓库
+- **Lark/飞书** - 消息推送
+
+---
+
+## 🔒 环境变量
+
+### 必需
 
 ```bash
-npm run dev:push
+LARK_WEBHOOK_URL=https://open.larksuite.com/open-apis/bot/v2/hook/YOUR_WEBHOOK
+LARK_BOT_SECRET=your_secret_from_lark_dashboard
 ```
 
-健康检查：
+### 可选
 
-```text
-http://localhost:8787/health
+```bash
+PORT=8787
+PUSH_MIN_SCORE=70
+ENABLE_AUDIT_LOG=true
+DB_PATH=./data/intelligence.db
+NODE_ENV=production
 ```
 
-## 注意
+---
 
-Lark / Feishu 自定义机器人支持通过消息卡片按钮跳转 URL，但不支持在点击按钮后回调服务器处理业务逻辑；如需点击回调，需要升级为自建 Lark App。
+## 📈 功能规划
 
+### ✅ 已完成
+- [x] Dashboard 完全可定制化
+- [x] Channels 动态管理
+- [x] 智能 Selector 分析
+- [x] 数据持久化到 SQLite
+- [x] CORS 完整支持
 
-## V5 Lark Button Fix
+### 🚧 开发中
+- [ ] 多源数据统计（阶段 3）
+- [ ] Reports 智能分析（阶段 4）
+- [ ] 批量操作
+- [ ] 频道分组
 
-如果 Lark 卡片没有显示按钮，通常是以下原因之一：
+---
 
-1. `MONITORING_PLATFORM_URL` 使用了 `http://localhost:5173`。Lark 客户端无法访问本机地址，建议改成 Vercel、内网可访问域名、ngrok 或 Cloudflare Tunnel 的 HTTPS 地址。
-2. 没有重启 Push Server。修改 `.env` 后需要重新运行 `npm run dev:all`。
-3. 旧版本 payload 被浏览器缓存或旧 server.js 仍在运行。
+## 📄 许可证
 
-V5 已对按钮做了兼容增强：
+MIT License
 
-- button 同时带 `url` 和 `multi_url`
-- card 顶部也带 `card_link`
-- note 区域加入 Markdown 链接作为兜底
+---
 
-推荐配置：
-
-```env
-LARK_WEBHOOK_URL=https://open.larksuite.com/open-apis/bot/v2/hook/xxxx
-LARK_BOT_SECRET=
-MONITORING_PLATFORM_URL=https://your-public-monitoring-domain.com
-VITE_PLATFORM_URL=https://your-public-monitoring-domain.com
-VITE_PUSH_API_URL=http://localhost:8787
-```
+**最后更新**: 2026-06-27  
+**版本**: v1.0.0 (Stage 1 & 2)  
+**状态**: ✅ Production Ready

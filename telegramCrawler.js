@@ -2,14 +2,11 @@ import * as cheerio from 'cheerio';
 import { analyzeTelegramMessage } from './telegramAnalyzer.js';
 import { hasSeenMessage, markMessageSeen } from './telegramStore.js';
 import { sendLarkItem } from './larkPush.js';
+import { getTelegramChannels } from './database.js';
 
-export const TELEGRAM_CHANNELS = [
-  { brand: 'Exness', handle: 'exnessasiaupdates', level: 'High' },
-  { brand: 'Binance', handle: 'binance_announcements', level: 'Critical' },
-  { brand: 'Binance CN', handle: 'binance_cn', level: 'High' },
-  { brand: 'OKX Campaign', handle: 'okx_campaign_announcements', level: 'High' },
-  { brand: 'OKX', handle: 'OKXAnnouncements', level: 'Critical' }
-];
+// 从数据库加载频道配置（阶段2：动态管理）
+// 旧的硬编码配置已迁移到数据库
+// export const TELEGRAM_CHANNELS = [...]
 
 const PUSH_MIN_SCORE = Number(process.env.PUSH_MIN_SCORE || 70);
 
@@ -56,7 +53,10 @@ export async function refreshTelegramChannels({ push = true, limitPerChannel = 5
   const newItems = [];
   const errors = [];
 
-  for (const channel of TELEGRAM_CHANNELS) {
+  // 从数据库读取启用的频道（阶段2：动态管理）
+  const channels = getTelegramChannels().filter(ch => ch.enabled);
+
+  for (const channel of channels) {
     try {
       const messages = await fetchTelegramChannel(channel);
       const latest = messages.slice(-limitPerChannel);

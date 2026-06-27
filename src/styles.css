@@ -239,6 +239,19 @@ button:disabled {
   margin-bottom: 16px;
 }
 
+/* 当卡片数量少于4个时自适应 */
+.stats:has(> :nth-child(3):last-child) {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.stats:has(> :nth-child(2):last-child) {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.stats:has(> :nth-child(1):last-child) {
+  grid-template-columns: 1fr;
+}
+
 .card {
   background: white;
   border: 1px solid #e5eaf2;
@@ -283,6 +296,11 @@ button:disabled {
   grid-template-columns: 2fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+/* 当只有1个图表时占满整行 */
+.grid2:has(> :nth-child(1):last-child) {
+  grid-template-columns: 1fr;
 }
 
 .chartCard {
@@ -338,6 +356,16 @@ button:disabled {
   grid-template-columns: 1fr 1.45fr 0.95fr;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+/* 当只有2个面板时平均分配 */
+.contentGrid:has(> :nth-child(2):last-child) {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 当只有1个面板时占满整行 */
+.contentGrid:has(> :nth-child(1):last-child) {
+  grid-template-columns: 1fr;
 }
 
 .channelList {
@@ -757,10 +785,13 @@ button:disabled {
 .modal {
   position: relative;
   width: min(640px, 100%);
+  max-height: 90vh;  /* 最大高度 90% 视口 */
   background: white;
   border-radius: 28px;
   padding: 26px;
   box-shadow: 0 30px 90px #0006;
+  overflow-y: auto;  /* 垂直滚动 */
+  overflow-x: hidden;  /* 隐藏水平滚动 */
 }
 
 .close {
@@ -886,4 +917,255 @@ button:disabled {
   .modalActions a {
     justify-content: center;
   }
+}
+
+/* Channels Page */
+.channelsPage {
+  width: 100%;
+}
+
+.channelsSection {
+  margin-bottom: 32px;
+}
+
+.channelsSection h2 {
+  font-size: 20px;
+  margin: 0 0 16px 0;
+  color: #0f172a;
+}
+
+.channelGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.channelCard {
+  background: white;
+  border: 1px solid #e5eaf2;
+  border-radius: 16px;
+  padding: 18px;
+  transition: all 0.2s;
+}
+
+.channelCard:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.channelCard.disabled {
+  opacity: 0.6;
+  background: #f8fafc;
+}
+
+.channelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.channelHeader h3 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.channelHandle {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.channelActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.deleteIcon {
+  color: #dc2626;
+}
+
+.deleteIcon:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.testResult {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.testResult.testing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.testResult.active {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.testResult.failed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Modal Form */
+.formField {
+  margin-bottom: 18px;
+}
+
+.formField label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.formField input,
+.formField select {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.formField input:focus,
+.formField select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Selector Analysis Results */
+.analysisResult {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  max-height: 400px;  /* 限制分析结果高度 */
+  overflow-y: auto;   /* 内部滚动 */
+}
+
+.analysisResult h4 {
+  margin: 0 0 12px 0;
+  color: #15803d;
+  font-size: 14px;
+}
+
+.recommendedSelector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border: 1px solid #dcfce7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.recommendedSelector code {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.recommendedSelector .confidence {
+  font-size: 12px;
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.analysisResult .reason {
+  font-size: 13px;
+  color: #15803d;
+  margin: 8px 0 12px 0;
+}
+
+.analysisResult .preview {
+  background: white;
+  border: 1px solid #dcfce7;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.analysisResult .preview strong {
+  display: block;
+  font-size: 13px;
+  color: #15803d;
+  margin-bottom: 8px;
+}
+
+.previewItem {
+  border-top: 1px solid #f0fdf4;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.previewItem:first-child {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.previewTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.previewText {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.alternativeSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.alternativeSelector code {
+  flex: 1;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.alternativeSelector span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.alternativeSelector button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+.alternativeSelector button:hover {
+  background: #1d4ed8;
 }

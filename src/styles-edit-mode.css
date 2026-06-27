@@ -1,0 +1,244 @@
+/* Dashboard Title Edit */
+.titleWithEdit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subtitleWithEdit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.subtitleWithEdit p {
+  margin: 0;
+}
+
+.editTitleBtn, .editSubtitleBtn {
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.editSubtitleBtn {
+  padding: 4px 6px;
+}
+
+.editTitleBtn:hover, .editSubtitleBtn:hover {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #2563eb;
+}
+
+/* Panel Size Classes - 使用grid-column控制跨列 */
+.stats .panel-size-small,
+.grid2 .panel-size-small,
+.contentGrid .panel-size-small {
+  grid-column: span 1;
+}
+
+.stats .panel-size-medium,
+.grid2 .panel-size-medium,
+.contentGrid .panel-size-medium {
+  grid-column: span 1;
+}
+
+.stats .panel-size-large {
+  grid-column: span 2;
+}
+
+.grid2 .panel-size-large {
+  grid-column: span 1;
+}
+
+.contentGrid .panel-size-large {
+  grid-column: span 2;
+}
+
+.panel-size-full {
+  grid-column: 1 / -1;
+}
+
+/* Dashboard Edit Mode Styles */
+.panelEditControls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.panelEditControls button {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.panelEditControls button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.panelEditControls .dragHandle {
+  cursor: grab;
+}
+
+.panelEditControls .dragHandle:active {
+  cursor: grabbing;
+}
+
+.panelEditControls .deleteBtn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.panelEditControls .editBtn:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.panelEditControls .sizeBtn:hover {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+/* Panel Title Edit Input */
+.panelTitleEdit {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.panelTitleEdit input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panelTitleEdit button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.panelTitleEdit .saveBtn {
+  background: #2563eb;
+  color: white;
+}
+
+.panelTitleEdit .saveBtn:hover {
+  background: #1d4ed8;
+}
+
+.panelTitleEdit .cancelBtn {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.panelTitleEdit .cancelBtn:hover {
+  background: #e2e8f0;
+}
+
+/* Dragging State */
+.sortablePanel.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+/* Edit Mode Indicator */
+.editModeIndicator {
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #92400e;
+  font-size: 14px;
+}
+
+.editModeIndicator svg {
+  flex-shrink: 0;
+}
+
+/* Hidden panels list in edit mode */
+.hiddenPanelsList {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.hiddenPanelsList h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.hiddenPanelsList .panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.hiddenPanelsList .panel:last-child {
+  margin-bottom: 0;
+}
+
+.hiddenPanelsList .panel span {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.hiddenPanelsList .panel button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.hiddenPanelsList .panel button:hover {
+  background: #1d4ed8;
+}

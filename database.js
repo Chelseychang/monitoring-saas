@@ -124,6 +124,37 @@ export async function initDatabase() {
 
     db.run(`CREATE INDEX IF NOT EXISTS idx_seen_messages_first_seen ON seen_messages(first_seen_at);`);
 
+    // 阶段2：Telegram频道配置表
+    db.run(`
+      CREATE TABLE IF NOT EXISTS telegram_channels (
+        id TEXT PRIMARY KEY,
+        brand TEXT NOT NULL,
+        handle TEXT NOT NULL UNIQUE,
+        level TEXT DEFAULT 'High',
+        enabled INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_telegram_channels_enabled ON telegram_channels(enabled);`);
+
+    // 阶段2：网站爬虫配置表
+    db.run(`
+      CREATE TABLE IF NOT EXISTS web_crawlers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        crawler_type TEXT DEFAULT 'tradingview',
+        selector TEXT,
+        enabled INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_web_crawlers_enabled ON web_crawlers(enabled);`);
+
     // 持久化到磁盘
     saveDatabase();
 
@@ -482,6 +513,187 @@ export function closeDatabase() {
     saveDatabase();
     db.close();
     db = null;
+  }
+}
+
+// ============================================
+// 阶段2：Telegram Channels CRUD
+// ============================================
+
+/**
+ * 获取所有Telegram频道
+ */
+export function getTelegramChannels() {
+  if (!db) return [];
+  try {
+    const result = db.exec('SELECT * FROM telegram_channels ORDER BY created_at DESC');
+    if (!result[0]) return [];
+
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, i) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  } catch (error) {
+    console.error('Failed to get telegram channels:', error.message);
+    return [];
+  }
+}
+
+/**
+ * 添加Telegram频道
+ */
+export function addTelegramChannel(brand, handle, level = 'High') {
+  if (!db) return null;
+  try {
+    const id = `tg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    db.run(
+      'INSERT INTO telegram_channels (id, brand, handle, level) VALUES (?, ?, ?, ?)',
+      [id, brand, handle, level]
+    );
+    saveDatabase();
+    return id;
+  } catch (error) {
+    console.error('Failed to add telegram channel:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * 更新Telegram频道
+ */
+export function updateTelegramChannel(id, updates) {
+  if (!db) return false;
+  try {
+    const fields = [];
+    const values = [];
+
+    if (updates.brand !== undefined) { fields.push('brand = ?'); values.push(updates.brand); }
+    if (updates.handle !== undefined) { fields.push('handle = ?'); values.push(updates.handle); }
+    if (updates.level !== undefined) { fields.push('level = ?'); values.push(updates.level); }
+    if (updates.enabled !== undefined) { fields.push('enabled = ?'); values.push(updates.enabled); }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    db.run(
+      `UPDATE telegram_channels SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+    saveDatabase();
+    return true;
+  } catch (error) {
+    console.error('Failed to update telegram channel:', error.message);
+    return false;
+  }
+}
+
+/**
+ * 删除Telegram频道
+ */
+export function deleteTelegramChannel(id) {
+  if (!db) return false;
+  try {
+    db.run('DELETE FROM telegram_channels WHERE id = ?', [id]);
+    saveDatabase();
+    return true;
+  } catch (error) {
+    console.error('Failed to delete telegram channel:', error.message);
+    return false;
+  }
+}
+
+// ============================================
+// 阶段2：Web Crawlers CRUD
+// ============================================
+
+/**
+ * 获取所有网站爬虫
+ */
+export function getWebCrawlers() {
+  if (!db) return [];
+  try {
+    const result = db.exec('SELECT * FROM web_crawlers ORDER BY created_at DESC');
+    if (!result[0]) return [];
+
+    const columns = result[0].columns;
+    return result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, i) => {
+        obj[col] = row[i];
+      });
+      return obj;
+    });
+  } catch (error) {
+    console.error('Failed to get web crawlers:', error.message);
+    return [];
+  }
+}
+
+/**
+ * 添加网站爬虫
+ */
+export function addWebCrawler(name, url, crawlerType = 'tradingview', selector = null) {
+  if (!db) return null;
+  try {
+    const id = `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    db.run(
+      'INSERT INTO web_crawlers (id, name, url, crawler_type, selector) VALUES (?, ?, ?, ?, ?)',
+      [id, name, url, crawlerType, selector]
+    );
+    saveDatabase();
+    return id;
+  } catch (error) {
+    console.error('Failed to add web crawler:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * 更新网站爬虫
+ */
+export function updateWebCrawler(id, updates) {
+  if (!db) return false;
+  try {
+    const fields = [];
+    const values = [];
+
+    if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
+    if (updates.url !== undefined) { fields.push('url = ?'); values.push(updates.url); }
+    if (updates.crawler_type !== undefined) { fields.push('crawler_type = ?'); values.push(updates.crawler_type); }
+    if (updates.selector !== undefined) { fields.push('selector = ?'); values.push(updates.selector); }
+    if (updates.enabled !== undefined) { fields.push('enabled = ?'); values.push(updates.enabled); }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    db.run(
+      `UPDATE web_crawlers SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+    saveDatabase();
+    return true;
+  } catch (error) {
+    console.error('Failed to update web crawler:', error.message);
+    return false;
+  }
+}
+
+/**
+ * 删除网站爬虫
+ */
+export function deleteWebCrawler(id) {
+  if (!db) return false;
+  try {
+    db.run('DELETE FROM web_crawlers WHERE id = ?', [id]);
+    saveDatabase();
+    return true;
+  } catch (error) {
+    console.error('Failed to delete web crawler:', error.message);
+    return false;
   }
 }
 

@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import ChannelsPage from './ChannelsPage.jsx';
 import {
   AreaChart,
   Area,
@@ -39,9 +40,44 @@ import {
   AlertTriangle,
   MessageCircle,
   Inbox,
-  Link2
+  Link2,
+  Edit,
+  RotateCcw,
+  GripVertical,
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  loadPanelConfig,
+  savePanelConfig,
+  resetPanelConfig,
+  updatePanelTitle,
+  updatePanelSubtitle,
+  updatePanelSize,
+  deletePanel as deletePanelConfig,
+  loadDashboardTitle,
+  saveDashboardTitle,
+  DEFAULT_DASHBOARD_TITLE
+} from './dashboardConfig.js';
 import './styles.css';
+import './styles-edit-mode.css';
 
 const PUSH_API_URL = import.meta.env.VITE_PUSH_API_URL || 'http://localhost:8787';
 const PLATFORM_URL = import.meta.env.VITE_PLATFORM_URL || 'http://localhost:5173';
@@ -393,6 +429,57 @@ function Stat({ title, value, icon: Icon, delta }) {
   );
 }
 
+// 可拖拽面板包装组件
+function SortablePanel({ id, children, editMode, onEdit, onEditSubtitle, onEditSize, onDelete, size = 'medium' }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id, disabled: !editMode });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: 'relative'
+  };
+
+  // 根据size添加className
+  const sizeClass = size ? `panel-size-${size}` : '';
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className={sizeClass}>
+      {editMode && (
+        <div className="panelEditControls">
+          <button className="dragHandle" {...listeners} title="拖拽排序">
+            <GripVertical size={16} />
+          </button>
+          <button className="editBtn" onClick={onEdit} title="编辑标题">
+            <Edit size={14} />
+          </button>
+          {onEditSubtitle && (
+            <button className="editBtn" onClick={onEditSubtitle} title="编辑描述">
+              <FileText size={14} />
+            </button>
+          )}
+          {onEditSize && (
+            <button className="sizeBtn" onClick={onEditSize} title="调整大小">
+              <Database size={14} />
+            </button>
+          )}
+          <button className="deleteBtn" onClick={onDelete} title="隐藏面板">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
 function Toast({ toast, onClose }) {
   if (!toast) return null;
 
@@ -487,6 +574,18 @@ function Dashboard() {
   const [larkPreview, setLarkPreview] = useState(null);
   const [isRefreshing, setRefreshing] = useState(false);
 
+  // 新增：面板配置和编辑模式
+  const [panels, setPanels] = useState([]);
+  const [editMode, setEditMode] = useState(false);
+  const [editingPanel, setEditingPanel] = useState(null);
+  const [dashboardTitle, setDashboardTitle] = useState(DEFAULT_DASHBOARD_TITLE);
+
+  // 加载面板配置和标题
+  useEffect(() => {
+    setPanels(loadPanelConfig());
+    setDashboardTitle(loadDashboardTitle());
+  }, []);
+
   const filtered = useMemo(() => {
     return intel.filter((x) => {
       const passFilter = filter === 'All' || x.level === filter || x.category === filter;
@@ -578,6 +677,95 @@ function Dashboard() {
     });
   }
 
+  // 面板管理函数
+  function handlePanelTitleChange(panelId, newTitle) {
+    const updated = updatePanelTitle(panels, panelId, newTitle);
+    setPanels(updated);
+    savePanelConfig(updated);
+  }
+
+  function handlePanelSubtitleChange(panelId, newSubtitle) {
+    const updated = updatePanelSubtitle(panels, panelId, newSubtitle);
+    setPanels(updated);
+    savePanelConfig(updated);
+  }
+
+  function handlePanelSizeChange(panelId, newSize) {
+    const updated = updatePanelSize(panels, panelId, newSize);
+    setPanels(updated);
+    savePanelConfig(updated);
+    show({ type: 'ok', title: '大小已更新', msg: `面板大小已设置为 ${newSize}` });
+  }
+
+  function handleDeletePanel(panelId) {
+    const updated = deletePanelConfig(panels, panelId);
+    setPanels(updated);
+    savePanelConfig(updated);
+    show({ type: 'ok', title: '面板已隐藏', msg: '可通过恢复默认布局重新显示' });
+  }
+
+  function handleResetLayout() {
+    const defaultPanels = resetPanelConfig();
+    setPanels(defaultPanels);
+    setEditMode(false);
+    show({ type: 'ok', title: '布局已恢复', msg: '所有面板已恢复为默认配置' });
+  }
+
+  function toggleEditMode() {
+    setEditMode(!editMode);
+    setEditingPanel(null);
+  }
+
+  function handleEditDashboardTitle() {
+    const newMain = prompt('编辑Dashboard主标题', dashboardTitle.main);
+    if (newMain && newMain !== dashboardTitle.main) {
+      const newTitle = { ...dashboardTitle, main: newMain };
+      setDashboardTitle(newTitle);
+      saveDashboardTitle(newTitle);
+      show({ type: 'ok', title: '标题已更新', msg: '页面主标题已更新' });
+    }
+  }
+
+  function handleEditDashboardSubtitle() {
+    const newSubtitle = prompt('编辑Dashboard副标题', dashboardTitle.subtitle);
+    if (newSubtitle && newSubtitle !== dashboardTitle.subtitle) {
+      const newTitle = { ...dashboardTitle, subtitle: newSubtitle };
+      setDashboardTitle(newTitle);
+      saveDashboardTitle(newTitle);
+      show({ type: 'ok', title: '副标题已更新', msg: '页面副标题已更新' });
+    }
+  }
+
+  // 拖拽相关
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  );
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      const visiblePanels = panels.filter(p => p.visible);
+      const oldIndex = visiblePanels.findIndex(p => p.id === active.id);
+      const newIndex = visiblePanels.findIndex(p => p.id === over.id);
+
+      const reordered = arrayMove(visiblePanels, oldIndex, newIndex);
+      const hiddenPanels = panels.filter(p => !p.visible);
+
+      // 更新order字段
+      reordered.forEach((panel, index) => {
+        panel.order = index + 1;
+      });
+
+      const newPanels = [...reordered, ...hiddenPanels];
+      setPanels(newPanels);
+      savePanelConfig(newPanels);
+    }
+  }
+
   function testPush() {
     push(intel[0]);
   }
@@ -592,6 +780,335 @@ function Dashboard() {
     });
   }
 
+  // 图标映射
+  const iconMap = {
+    TrendingUp, ShieldAlert, Zap, CheckCircle2, Bot, Inbox, Link2
+  };
+
+  // 渲染面板内容的函数
+  function renderPanelContent(panel) {
+    // 统计卡片
+    if (panel.type === 'stat') {
+      let value = '0';
+      const Icon = iconMap[panel.icon] || Activity;
+
+      switch (panel.id) {
+        case 'stat-intelligence':
+          value = total;
+          break;
+        case 'stat-priority':
+          value = intel.filter((x) => x.score >= 80).length;
+          break;
+        case 'stat-pushed':
+          value = intel.filter((x) => x.pushed).length;
+          break;
+        case 'stat-status':
+          value = '5/5';
+          break;
+      }
+
+      return <Stat title={panel.title} value={value} icon={Icon} delta={panel.subtitle} />;
+    }
+
+    // 图表卡片
+    if (panel.type === 'chart') {
+      if (panel.id === 'chart-trend') {
+        return (
+          <div className="card chartCard">
+            <div className="cardHeader">
+              <div>
+                <h2>{panel.title}</h2>
+                <p>{panel.subtitle}</p>
+              </div>
+              <Badge type="Live">Auto refreshed</Badge>
+            </div>
+
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={trend}>
+                <defs>
+                  <linearGradient id="b" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="d" />
+                <YAxis />
+                <Tooltip />
+                <Area type="monotone" dataKey="Binance" stroke="#2563eb" fill="url(#b)" />
+                <Area type="monotone" dataKey="OKX" stroke="#7c3aed" fill="transparent" />
+                <Area type="monotone" dataKey="Exness" stroke="#f97316" fill="transparent" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      } else if (panel.id === 'chart-category') {
+        return (
+          <div className="card chartCard">
+            <div className="cardHeader">
+              <div>
+                <h2>{panel.title}</h2>
+                <p>{panel.subtitle}</p>
+              </div>
+              <Sparkles size={18} />
+            </div>
+
+            <ResponsiveContainer width="100%" height={260}>
+              <PieChart>
+                <Pie data={cats} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90}>
+                  {cats.map((e, i) => (
+                    <Cell key={e.name} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+
+            <div className="legend">
+              {cats.map((c, i) => (
+                <span key={c.name}>
+                  <i style={{ background: COLORS[i] }} /> {c.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      }
+    }
+
+    // 内容区域
+    if (panel.type === 'content') {
+      if (panel.id === 'content-channels') {
+        return (
+          <aside className="card">
+            <div className="cardHeader">
+              <div>
+                <h2>{panel.title}</h2>
+                <p>{panel.subtitle}</p>
+              </div>
+              <Bot size={18} />
+            </div>
+
+            <div className="channelList">
+              {channels.map((c) => (
+                <a key={c.handle} href={c.url} target="_blank" rel="noreferrer" className="channel">
+                  <div>
+                    <b>{c.brand}</b>
+                    <span>@{c.handle}</span>
+                  </div>
+                  <div className="channelMeta">
+                    <Badge type={c.priority}>{c.priority}</Badge>
+                    <small>{c.today} today · {c.health}%</small>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </aside>
+        );
+      } else if (panel.id === 'content-feed') {
+        return (
+          <main className="card feedCard">
+            <div className="cardHeader">
+              <div>
+                <h2>{panel.title}</h2>
+                <p>{panel.subtitle}</p>
+              </div>
+            </div>
+
+            <div className="filters">
+              <label>
+                <Search size={16} />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索品牌 / 关键词" />
+              </label>
+
+              <label>
+                <Filter size={16} />
+                <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+                  <option>All</option>
+                  <option>Critical</option>
+                  <option>High</option>
+                  <option>Medium</option>
+                  <option>Campaign</option>
+                  <option>Promotion</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="feed">
+              {filtered.map((x) => (
+                <article key={x.id} className="intel">
+                  <div className="intelMain">
+                    <div className="row gap">
+                      <Badge type={x.level}>{x.level}</Badge>
+                      <Badge>{x.category}</Badge>
+                      {x.pushed && <Badge type="Live">Pushed</Badge>}
+                    </div>
+
+                    <h3>{x.title}</h3>
+                    <p>{x.summary}</p>
+
+                    <div className="meta">
+                      <span>{x.brand}</span>
+                      <span>@{x.handle}</span>
+                      <span>
+                        <Clock size={13} /> {x.time}
+                      </span>
+                      <span>{x.owner}</span>
+                    </div>
+
+                    <div className="tagRow">
+                      {(x.tags || []).map((t) => (
+                        <span key={t}>#{t}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="scoreBox">
+                    <strong>{x.score}</strong>
+                    <span>AI Score</span>
+                    <button onClick={() => setSelected(x)}>
+                      Details <ExternalLink size={14} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </main>
+        );
+      } else if (panel.id === 'content-notifications') {
+        return (
+          <aside className="card">
+            <div className="cardHeader">
+              <div>
+                <h2>{panel.title}</h2>
+                <p>{panel.subtitle}</p>
+              </div>
+              <Inbox size={18} />
+            </div>
+
+            <button className="secondaryBtn full" onClick={markAllRead}>
+              全部已读
+            </button>
+
+            <div className="notifyList">
+              {notifications.length === 0 && (
+                <div className="empty">
+                  <MessageCircle size={28} />
+                  <b>暂无站内消息</b>
+                  <p>点击情报 Details → 推送到 Lark 后，这里会生成站内消息。</p>
+                </div>
+              )}
+
+              {notifications.map((n) => (
+                <div key={n.id} className={`notify ${n.read ? 'read' : ''}`} onClick={() => setSelected(n.item)}>
+                  <div className="row gap">
+                    <Badge type={n.item.level}>{n.item.level}</Badge>
+                    <Badge>{n.item.category}</Badge>
+                  </div>
+
+                  <b>{n.item.brand} · {n.item.title}</b>
+                  <p>{n.item.summary}</p>
+                  <small>
+                    标签：{(n.item.tags || []).map((t) => `#${t}`).join(' ')} · 时间：{n.createdAt} · 详情：Lark 卡片含两个跳转按钮
+                  </small>
+                </div>
+              ))}
+            </div>
+          </aside>
+        );
+      }
+    }
+
+    // Lark预览
+    if (panel.type === 'preview' && panel.id === 'lark') {
+      return (
+        <section className="card larkPanel">
+          <div className="cardHeader">
+            <div>
+              <h2>{panel.title}</h2>
+              <p>{panel.subtitle}</p>
+            </div>
+            <Link2 size={18} />
+          </div>
+
+          {!larkPreview && (
+            <div className="empty wide">
+              <Bell size={32} />
+              <b>暂无 Lark 预览</b>
+              <p>触发推送后，这里会展示 Lark 卡片与 JSON payload。</p>
+            </div>
+          )}
+
+          {larkPreview && (
+            <div className="larkPreview">
+              <div className={`larkCard ${larkPreview.item.level}`}>
+                <Badge type={larkPreview.item.level}>{larkPreview.item.level}</Badge>
+                <h3>竞对动态：{larkPreview.item.brand}</h3>
+                <h4>{larkPreview.item.title}</h4>
+                <p>{larkPreview.item.summary}</p>
+
+                <div className="detailGrid compact">
+                  <div>
+                    <span>标签</span>
+                    <b>{(larkPreview.item.tags || []).map((t) => `#${t}`).join(' ')}</b>
+                  </div>
+                  <div>
+                    <span>时间</span>
+                    <b>{larkPreview.item.time}</b>
+                  </div>
+                  <div>
+                    <span>分类</span>
+                    <b>{larkPreview.item.category}</b>
+                  </div>
+                  <div>
+                    <span>AI Score</span>
+                    <b>{larkPreview.item.score}</b>
+                  </div>
+                </div>
+
+                <div className="row gap">
+                  <a className="primaryBtn" href={toPlatformUrl(larkPreview.item.detailUrl)} target="_blank" rel="noreferrer">
+                    打开监控平台
+                  </a>
+                  <a className="secondaryBtn" href={larkPreview.item.sourceUrl} target="_blank" rel="noreferrer">
+                    打开对应信息源
+                  </a>
+                </div>
+
+                <small>
+                  状态：
+                  {larkPreview.status === 'sent'
+                    ? larkPreview.mocked
+                      ? 'Mock 预览（未配置 Webhook）'
+                      : '已发送到 Lark'
+                    : larkPreview.status === 'failed'
+                      ? '发送失败'
+                      : '准备发送'}
+                </small>
+              </div>
+
+              <details>
+                <summary>查看 Lark JSON payload</summary>
+                <pre>{JSON.stringify(larkPreview.payload, null, 2)}</pre>
+              </details>
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    return null;
+  }
+
+  const visiblePanels = panels.filter(p => p.visible);
+  const panelIds = visiblePanels.map(p => p.id);
+
+  // 按类型分组面板
+  const statPanels = visiblePanels.filter(p => p.type === 'stat');
+  const chartPanels = visiblePanels.filter(p => p.type === 'chart');
+  const contentPanels = visiblePanels.filter(p => p.type === 'content');
+  const otherPanels = visiblePanels.filter(p => p.type !== 'stat' && p.type !== 'chart' && p.type !== 'content');
+
   return (
     <>
       <Toast toast={toast} onClose={() => setToast(null)} />
@@ -599,297 +1116,231 @@ function Dashboard() {
 
       <header className="topbar">
         <div>
-          <span className="eyebrow">
-            <Radio size={14} /> 5 channels live
-          </span>
-          <h1>多源金融情报监控 Dashboard</h1>
-          <p>Telegram + TradingView financial intelligence monitoring with AI scoring and Lark push.</p>
+          <div className="titleWithEdit">
+            <h1>{dashboardTitle.main}</h1>
+            {editMode && (
+              <button className="editTitleBtn" onClick={handleEditDashboardTitle} title="编辑主标题">
+                <Edit size={16} />
+              </button>
+            )}
+          </div>
+          <div className="subtitleWithEdit">
+            <p>{dashboardTitle.subtitle}</p>
+            {editMode && (
+              <button className="editSubtitleBtn" onClick={handleEditDashboardSubtitle} title="编辑副标题">
+                <Edit size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="topActions">
-          <button className="primaryBtn" onClick={refresh} disabled={isRefreshing}>
-            <RefreshCw size={16} className={isRefreshing ? 'spin' : ''} />
-            {isRefreshing ? 'Refreshing' : 'Refresh'}
+          <button className={editMode ? "primaryBtn" : "secondaryBtn"} onClick={toggleEditMode}>
+            {editMode ? <Check size={16} /> : <Edit size={16} />}
+            {editMode ? '完成编辑' : '编辑布局'}
           </button>
 
-          <button className="secondaryBtn" onClick={testPush}>
-            <Bell size={16} /> Test Push
-          </button>
+          {editMode && (
+            <button className="secondaryBtn" onClick={handleResetLayout}>
+              <RotateCcw size={16} /> 恢复默认
+            </button>
+          )}
+
+          {!editMode && (
+            <>
+              <button className="primaryBtn" onClick={refresh} disabled={isRefreshing}>
+                <RefreshCw size={16} className={isRefreshing ? 'spin' : ''} />
+                {isRefreshing ? 'Refreshing' : 'Refresh'}
+              </button>
+
+              <button className="secondaryBtn" onClick={testPush}>
+                <Bell size={16} /> Test Push
+              </button>
+            </>
+          )}
         </div>
       </header>
 
-      <section className="stats">
-        <Stat title="今日新增情报" value={total} icon={TrendingUp} delta="telegram messages" />
-        <Stat title="高优先级事件" value={intel.filter((x) => x.score >= 80).length} icon={ShieldAlert} delta="critical alerts" />
-        <Stat title="已触发推送" value={intel.filter((x) => x.pushed).length} icon={Zap} delta="Lark + 站内消息" />
-        <Stat title="监听状态" value="5/5" icon={CheckCircle2} delta="healthy channels" />
-      </section>
-
-      <section className="grid2">
-        <div className="card chartCard">
-          <div className="cardHeader">
-            <div>
-              <h2>7 日品牌动态趋势</h2>
-              <p>Daily captured intelligence by competitor brand</p>
-            </div>
-            <Badge type="Live">Auto refreshed</Badge>
-          </div>
-
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={trend}>
-              <defs>
-                <linearGradient id="b" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="d" />
-              <YAxis />
-              <Tooltip />
-              <Area type="monotone" dataKey="Binance" stroke="#2563eb" fill="url(#b)" />
-              <Area type="monotone" dataKey="OKX" stroke="#7c3aed" fill="transparent" />
-              <Area type="monotone" dataKey="Exness" stroke="#f97316" fill="transparent" />
-            </AreaChart>
-          </ResponsiveContainer>
+      {editMode && (
+        <div className="editModeIndicator">
+          <Edit size={18} />
+          <span>编辑模式已激活 - 拖拽面板调整顺序，点击编辑按钮修改标题，点击删除按钮隐藏面板</span>
         </div>
+      )}
 
-        <div className="card chartCard">
-          <div className="cardHeader">
-            <div>
-              <h2>分类分布</h2>
-              <p>AI classified categories</p>
-            </div>
-            <Sparkles size={18} />
-          </div>
-
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={cats} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90}>
-                {cats.map((e, i) => (
-                  <Cell key={e.name} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-
-          <div className="legend">
-            {cats.map((c, i) => (
-              <span key={c.name}>
-                <i style={{ background: COLORS[i] }} /> {c.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="contentGrid">
-        <aside className="card">
-          <div className="cardHeader">
-            <div>
-              <h2>监听频道</h2>
-              <p>Telegram source health</p>
-            </div>
-            <Bot size={18} />
-          </div>
-
-          <div className="channelList">
-            {channels.map((c) => (
-              <a key={c.handle} href={c.url} target="_blank" rel="noreferrer" className="channel">
-                <div>
-                  <b>{c.brand}</b>
-                  <span>@{c.handle}</span>
-                </div>
-                <div className="channelMeta">
-                  <Badge type={c.priority}>{c.priority}</Badge>
-                  <small>{c.today} today · {c.health}%</small>
-                </div>
-              </a>
-            ))}
-          </div>
-        </aside>
-
-        <main className="card feedCard">
-          <div className="cardHeader">
-            <div>
-              <h2>实时情报信息流</h2>
-              <p>Search, filter and triage competitor movements</p>
-            </div>
-          </div>
-
-          <div className="filters">
-            <label>
-              <Search size={16} />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索品牌 / 关键词" />
-            </label>
-
-            <label>
-              <Filter size={16} />
-              <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-                <option>All</option>
-                <option>Critical</option>
-                <option>High</option>
-                <option>Medium</option>
-                <option>Campaign</option>
-                <option>Promotion</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="feed">
-            {filtered.map((x) => (
-              <article key={x.id} className="intel">
-                <div className="intelMain">
-                  <div className="row gap">
-                    <Badge type={x.level}>{x.level}</Badge>
-                    <Badge>{x.category}</Badge>
-                    {x.pushed && <Badge type="Live">Pushed</Badge>}
-                  </div>
-
-                  <h3>{x.title}</h3>
-                  <p>{x.summary}</p>
-
-                  <div className="meta">
-                    <span>{x.brand}</span>
-                    <span>@{x.handle}</span>
-                    <span>
-                      <Clock size={13} /> {x.time}
-                    </span>
-                    <span>{x.owner}</span>
-                  </div>
-
-                  <div className="tagRow">
-                    {(x.tags || []).map((t) => (
-                      <span key={t}>#{t}</span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="scoreBox">
-                  <strong>{x.score}</strong>
-                  <span>AI Score</span>
-                  <button onClick={() => setSelected(x)}>
-                    Details <ExternalLink size={14} />
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </main>
-
-        <aside className="card">
-          <div className="cardHeader">
-            <div>
-              <h2>站内消息中心</h2>
-              <p>普通情报默认进入站内消息；高优先级可同时推送 Lark。</p>
-            </div>
-            <Inbox size={18} />
-          </div>
-
-          <button className="secondaryBtn full" onClick={markAllRead}>
-            全部已读
-          </button>
-
-          <div className="notifyList">
-            {notifications.length === 0 && (
-              <div className="empty">
-                <MessageCircle size={28} />
-                <b>暂无站内消息</b>
-                <p>点击情报 Details → 推送到 Lark 后，这里会生成站内消息。</p>
-              </div>
-            )}
-
-            {notifications.map((n) => (
-              <div key={n.id} className={`notify ${n.read ? 'read' : ''}`} onClick={() => setSelected(n.item)}>
-                <div className="row gap">
-                  <Badge type={n.item.level}>{n.item.level}</Badge>
-                  <Badge>{n.item.category}</Badge>
-                </div>
-
-                <b>{n.item.brand} · {n.item.title}</b>
-                <p>{n.item.summary}</p>
-                <small>
-                  标签：{(n.item.tags || []).map((t) => `#${t}`).join(' ')} · 时间：{n.createdAt} · 详情：Lark 卡片含两个跳转按钮
-                </small>
-              </div>
-            ))}
-          </div>
-        </aside>
-      </section>
-
-      <section className="card larkPanel">
-        <div className="cardHeader">
-          <div>
-            <h2>Lark 消息预览</h2>
-            <p>消息包含标签、时间、详情，并提供两个跳转按钮。</p>
-          </div>
-          <Link2 size={18} />
-        </div>
-
-        {!larkPreview && (
-          <div className="empty wide">
-            <Bell size={32} />
-            <b>暂无 Lark 预览</b>
-            <p>触发推送后，这里会展示 Lark 卡片与 JSON payload。</p>
-          </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        {/* 统计卡片 */}
+        {statPanels.length > 0 && (
+          <section className="stats">
+            <SortableContext items={statPanels.map(p => p.id)} strategy={verticalListSortingStrategy}>
+              {statPanels.map((panel) => (
+                <SortablePanel
+                  key={panel.id}
+                  id={panel.id}
+                  size={panel.size}
+                  editMode={editMode}
+                  onEdit={() => {
+                    const newTitle = prompt(`编辑卡片标题`, panel.title);
+                    if (newTitle && newTitle !== panel.title) {
+                      handlePanelTitleChange(panel.id, newTitle);
+                    }
+                  }}
+                  onEditSubtitle={() => {
+                    const newSubtitle = prompt(`编辑卡片描述`, panel.subtitle);
+                    if (newSubtitle && newSubtitle !== panel.subtitle) {
+                      handlePanelSubtitleChange(panel.id, newSubtitle);
+                    }
+                  }}
+                  onEditSize={() => {
+                    const sizes = ['small', 'medium', 'large', 'full'];
+                    const currentIndex = sizes.indexOf(panel.size || 'medium');
+                    const sizeLabels = { small: '小', medium: '中', large: '大', full: '全宽' };
+                    const options = sizes.map((s, i) => `${i + 1}. ${sizeLabels[s]} (${s})`).join('\n');
+                    const choice = prompt(`选择卡片大小：\n${options}\n\n当前: ${sizeLabels[panel.size || 'medium']}`, String(currentIndex + 1));
+                    if (choice) {
+                      const index = parseInt(choice) - 1;
+                      if (index >= 0 && index < sizes.length) {
+                        handlePanelSizeChange(panel.id, sizes[index]);
+                      }
+                    }
+                  }}
+                  onDelete={() => handleDeletePanel(panel.id)}
+                >
+                  {renderPanelContent(panel)}
+                </SortablePanel>
+              ))}
+            </SortableContext>
+          </section>
         )}
 
-        {larkPreview && (
-          <div className="larkPreview">
-            <div className={`larkCard ${larkPreview.item.level}`}>
-              <Badge type={larkPreview.item.level}>{larkPreview.item.level}</Badge>
-              <h3>竞对动态：{larkPreview.item.brand}</h3>
-              <h4>{larkPreview.item.title}</h4>
-              <p>{larkPreview.item.summary}</p>
-
-              <div className="detailGrid compact">
-                <div>
-                  <span>标签</span>
-                  <b>{(larkPreview.item.tags || []).map((t) => `#${t}`).join(' ')}</b>
-                </div>
-                <div>
-                  <span>时间</span>
-                  <b>{larkPreview.item.time}</b>
-                </div>
-                <div>
-                  <span>分类</span>
-                  <b>{larkPreview.item.category}</b>
-                </div>
-                <div>
-                  <span>AI Score</span>
-                  <b>{larkPreview.item.score}</b>
-                </div>
-              </div>
-
-              <div className="row gap">
-                <a className="primaryBtn" href={toPlatformUrl(larkPreview.item.detailUrl)} target="_blank" rel="noreferrer">
-                  打开监控平台
-                </a>
-                <a className="secondaryBtn" href={larkPreview.item.sourceUrl} target="_blank" rel="noreferrer">
-                  打开对应信息源
-                </a>
-              </div>
-
-              <small>
-                状态：
-                {larkPreview.status === 'sent'
-                  ? larkPreview.mocked
-                    ? 'Mock 预览（未配置 Webhook）'
-                    : '已发送到 Lark'
-                  : larkPreview.status === 'failed'
-                    ? '发送失败'
-                    : '准备发送'}
-              </small>
-            </div>
-
-            <details>
-              <summary>查看 Lark JSON payload</summary>
-              <pre>{JSON.stringify(larkPreview.payload, null, 2)}</pre>
-            </details>
-          </div>
+        {/* 图表 */}
+        {chartPanels.length > 0 && (
+          <section className="grid2">
+            <SortableContext items={chartPanels.map(p => p.id)} strategy={verticalListSortingStrategy}>
+              {chartPanels.map((panel) => (
+                <SortablePanel
+                  key={panel.id}
+                  id={panel.id}
+                  size={panel.size}
+                  editMode={editMode}
+                  onEdit={() => {
+                    const newTitle = prompt(`编辑图表标题`, panel.title);
+                    if (newTitle && newTitle !== panel.title) {
+                      handlePanelTitleChange(panel.id, newTitle);
+                    }
+                  }}
+                  onEditSubtitle={() => {
+                    const newSubtitle = prompt(`编辑图表描述`, panel.subtitle);
+                    if (newSubtitle && newSubtitle !== panel.subtitle) {
+                      handlePanelSubtitleChange(panel.id, newSubtitle);
+                    }
+                  }}
+                  onEditSize={() => {
+                    const sizes = ['small', 'medium', 'large', 'full'];
+                    const currentIndex = sizes.indexOf(panel.size || 'large');
+                    const sizeLabels = { small: '小', medium: '中', large: '大', full: '全宽' };
+                    const options = sizes.map((s, i) => `${i + 1}. ${sizeLabels[s]} (${s})`).join('\n');
+                    const choice = prompt(`选择图表大小：\n${options}\n\n当前: ${sizeLabels[panel.size || 'large']}`, String(currentIndex + 1));
+                    if (choice) {
+                      const index = parseInt(choice) - 1;
+                      if (index >= 0 && index < sizes.length) {
+                        handlePanelSizeChange(panel.id, sizes[index]);
+                      }
+                    }
+                  }}
+                  onDelete={() => handleDeletePanel(panel.id)}
+                >
+                  {renderPanelContent(panel)}
+                </SortablePanel>
+              ))}
+            </SortableContext>
+          </section>
         )}
-      </section>
+
+        {/* 内容区域 */}
+        {contentPanels.length > 0 && (
+          <section className="contentGrid">
+            <SortableContext items={contentPanels.map(p => p.id)} strategy={verticalListSortingStrategy}>
+              {contentPanels.map((panel) => (
+                <SortablePanel
+                  key={panel.id}
+                  id={panel.id}
+                  size={panel.size}
+                  editMode={editMode}
+                  onEdit={() => {
+                    const newTitle = prompt(`编辑面板标题`, panel.title);
+                    if (newTitle && newTitle !== panel.title) {
+                      handlePanelTitleChange(panel.id, newTitle);
+                    }
+                  }}
+                  onEditSubtitle={() => {
+                    const newSubtitle = prompt(`编辑面板描述`, panel.subtitle);
+                    if (newSubtitle && newSubtitle !== panel.subtitle) {
+                      handlePanelSubtitleChange(panel.id, newSubtitle);
+                    }
+                  }}
+                  onEditSize={() => {
+                    const sizes = ['small', 'medium', 'large', 'full'];
+                    const currentIndex = sizes.indexOf(panel.size || 'medium');
+                    const sizeLabels = { small: '小', medium: '中', large: '大', full: '全宽' };
+                    const options = sizes.map((s, i) => `${i + 1}. ${sizeLabels[s]} (${s})`).join('\n');
+                    const choice = prompt(`选择面板大小：\n${options}\n\n当前: ${sizeLabels[panel.size || 'medium']}`, String(currentIndex + 1));
+                    if (choice) {
+                      const index = parseInt(choice) - 1;
+                      if (index >= 0 && index < sizes.length) {
+                        handlePanelSizeChange(panel.id, sizes[index]);
+                      }
+                    }
+                  }}
+                  onDelete={() => handleDeletePanel(panel.id)}
+                >
+                  {renderPanelContent(panel)}
+                </SortablePanel>
+              ))}
+            </SortableContext>
+          </section>
+        )}
+
+        {/* 其他面板（如Lark预览） */}
+        <SortableContext items={otherPanels.map(p => p.id)} strategy={verticalListSortingStrategy}>
+          {otherPanels.map((panel) => (
+            <SortablePanel
+              key={panel.id}
+              id={panel.id}
+              size={panel.size}
+              editMode={editMode}
+              onEdit={() => {
+                const newTitle = prompt(`编辑面板标题`, panel.title);
+                if (newTitle && newTitle !== panel.title) {
+                  handlePanelTitleChange(panel.id, newTitle);
+                }
+              }}
+              onEditSubtitle={() => {
+                const newSubtitle = prompt(`编辑面板描述`, panel.subtitle);
+                if (newSubtitle && newSubtitle !== panel.subtitle) {
+                  handlePanelSubtitleChange(panel.id, newSubtitle);
+                }
+              }}
+              onEditSize={() => {
+                const sizes = ['small', 'medium', 'large', 'full'];
+                const currentIndex = sizes.indexOf(panel.size || 'full');
+                const sizeLabels = { small: '小', medium: '中', large: '大', full: '全宽' };
+                const options = sizes.map((s, i) => `${i + 1}. ${sizeLabels[s]} (${s})`).join('\n');
+                const choice = prompt(`选择面板大小：\n${options}\n\n当前: ${sizeLabels[panel.size || 'full']}`, String(currentIndex + 1));
+                if (choice) {
+                  const index = parseInt(choice) - 1;
+                  if (index >= 0 && index < sizes.length) {
+                    handlePanelSizeChange(panel.id, sizes[index]);
+                  }
+                }
+              }}
+              onDelete={() => handleDeletePanel(panel.id)}
+            >
+              {renderPanelContent(panel)}
+            </SortablePanel>
+          ))}
+        </SortableContext>
+      </DndContext>
 
       <section className="techGrid">
         <div className="card tech">
@@ -951,7 +1402,11 @@ function App() {
         </div>
       </aside>
 
-      <div className="main">{active === 'Dashboard' ? <Dashboard /> : <Placeholder active={active} />}</div>
+      <div className="main">
+        {active === 'Dashboard' && <Dashboard />}
+        {active === 'Channels' && <ChannelsPage />}
+        {active !== 'Dashboard' && active !== 'Channels' && <Placeholder active={active} />}
+      </div>
     </div>
   );
 }
